@@ -16,7 +16,31 @@ function App() {
     score: 0,
     level: 1,
     timeRemaining: 60,
-    andyFound: false
+    andyFound: false,
+    camera: {
+      x: 0,
+      y: 0,
+      targetX: 0,
+      targetY: 0,
+      isDragging: false,
+      dragStartX: 0,
+      dragStartY: 0,
+      dragStartCameraX: 0,
+      dragStartCameraY: 0
+    },
+    zoomLens: {
+      x: 0,
+      y: 0,
+      radius: 80,
+      magnification: 2,
+      isActive: false
+    },
+    arena: {
+      width: 0,
+      height: 0,
+      crowdDensity: 0,
+      characters: []
+    }
   })
 
   const handleGameStateChange = (newGameState: GameState) => {
