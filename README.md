@@ -167,6 +167,12 @@ Mobile app settings in `capacitor.config.ts`:
 
 The app is automatically deployed to GitHub Pages at: **https://himanshu4141.github.io/finding-andy/**
 
+#### Initial Setup (One-time)
+To enable GitHub Pages deployment, the repository owner needs to:
+1. Go to repository **Settings** → **Pages**
+2. Under "Source", select "**GitHub Actions**"
+3. The deployment workflow will handle the rest automatically
+
 #### Automatic Deployment
 - **Trigger**: Pushes to the `main` branch automatically trigger deployment
 - **Workflow**: GitHub Actions builds and deploys the app
