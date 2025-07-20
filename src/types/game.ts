@@ -4,9 +4,13 @@ export interface GameState {
   level: number
   timeRemaining: number
   andyFound: boolean
+  companionFound: boolean
+  bothFound: boolean
   camera: Camera
   zoomLens: ZoomLens
   arena: Arena
+  victory: VictoryState
+  feedback: FeedbackState
 }
 
 export interface Character {
@@ -16,6 +20,7 @@ export interface Character {
   width: number
   height: number
   isAndy: boolean
+  isCompanion: boolean
   spriteIndex: number
 }
 
@@ -72,4 +77,55 @@ export interface Arena {
   height: number
   crowdDensity: number
   characters: Character[]
+}
+
+export interface VictoryState {
+  isActive: boolean
+  stage: 'confetti' | 'celebration' | 'complete' | 'none'
+  duration: number
+  particles: Particle[]
+  shakeIntensity: number
+  celebrationStartTime: number
+}
+
+export interface FeedbackState {
+  shake: ShakeEffect
+  lastMissPosition: Point | null
+  missCount: number
+}
+
+export interface ShakeEffect {
+  isActive: boolean
+  duration: number
+  intensity: number
+  startTime: number
+}
+
+export interface Particle {
+  id: string
+  x: number
+  y: number
+  vx: number
+  vy: number
+  life: number
+  maxLife: number
+  color: string
+  size: number
+}
+
+export interface SoundEffect {
+  name: string
+  url: string
+  volume: number
+  loop: boolean
+}
+
+export interface AudioManager {
+  sounds: Map<string, HTMLAudioElement>
+  volume: number
+  muted: boolean
+  playSound: (name: string, volumeOverride?: number) => Promise<void>
+  setVolume: (volume: number) => void
+  toggleMute: () => boolean
+  cleanup: () => void
 }
