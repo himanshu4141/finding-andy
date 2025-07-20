@@ -1,0 +1,99 @@
+{
+  "project": {
+    "name": "Finding Andy Development",
+    "description": "Development tracking for Finding Andy game - a pixel-art Where's Waldo game",
+    "visibility": "public",
+    "template": "board"
+  },
+  "columns": [
+    {
+      "name": "Backlog",
+      "description": "New issues and planned features waiting to be started",
+      "automation": {
+        "preset": "item-added-to-project",
+        "enabled": true
+      }
+    },
+    {
+      "name": "In Progress",
+      "description": "Issues currently being worked on by team members",
+      "automation": {
+        "preset": "item-assigned",
+        "enabled": true
+      }
+    },
+    {
+      "name": "Review",
+      "description": "Pull requests and completed work awaiting review and testing",
+      "automation": {
+        "preset": "pull-request-opened",
+        "enabled": true
+      }
+    },
+    {
+      "name": "Done",
+      "description": "Completed tasks that have been merged and closed",
+      "automation": {
+        "preset": "pull-request-merged",
+        "enabled": true
+      }
+    }
+  ],
+  "initial_issues": {
+    "backlog": [
+      {"number": 1, "title": "Project Setup - React + TypeScript + Canvas Foundation"},
+      {"number": 2, "title": "Implement Zoom Lens and Mouse Drag Navigation"},
+      {"number": 5, "title": "Victory Animations & Fun Feedback"},
+      {"number": 6, "title": "Character Placement & Game Logic: Find Andy and Lady"},
+      {"number": 7, "title": "Crowd Graphics & Arena Design"}
+    ],
+    "in_progress": [
+      {"number": 4, "title": "Set Up Project Board & Issue Links"}
+    ],
+    "review": [
+      {"number": 3, "title": "Complete React + TypeScript + Canvas Foundation", "type": "pull_request"},
+      {"number": 8, "title": "[WIP] Set Up Project Board & Issue Links", "type": "pull_request"}
+    ]
+  },
+  "automation_workflows": [
+    {
+      "name": "Item added to project",
+      "trigger": "issues.opened",
+      "action": "move_to_column",
+      "target_column": "Backlog"
+    },
+    {
+      "name": "Pull request opened",
+      "trigger": "pull_request.opened",
+      "action": "move_to_column",
+      "target_column": "Review"
+    },
+    {
+      "name": "Pull request merged",
+      "trigger": "pull_request.closed",
+      "condition": "merged",
+      "action": "move_to_column",
+      "target_column": "Done"
+    },
+    {
+      "name": "Issue closed",
+      "trigger": "issues.closed",
+      "action": "move_to_column",
+      "target_column": "Done"
+    },
+    {
+      "name": "Issue assigned",
+      "trigger": "issues.assigned",
+      "action": "move_to_column",
+      "target_column": "In Progress"
+    }
+  ],
+  "labels": [
+    {"name": "foundation", "color": "0075ca", "description": "Core project setup"},
+    {"name": "mechanics", "color": "7057ff", "description": "Game logic and interaction"},
+    {"name": "graphics", "color": "a2eeef", "description": "Visual assets and design"},
+    {"name": "mobile", "color": "008672", "description": "Mobile-specific features"},
+    {"name": "performance", "color": "d93f0b", "description": "Optimization tasks"},
+    {"name": "enhancement", "color": "84b6eb", "description": "New features"}
+  ]
+}

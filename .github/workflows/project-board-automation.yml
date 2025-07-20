@@ -1,0 +1,108 @@
+name: Project Board Automation
+
+on:
+  issues:
+    types: [opened, closed, assigned, unassigned]
+  pull_request:
+    types: [opened, closed, converted_to_draft, ready_for_review]
+
+jobs:
+  manage-project-board:
+    runs-on: ubuntu-latest
+    name: Manage Project Board Items
+    
+    steps:
+      - name: Add new issues to Backlog
+        if: github.event.action == 'opened' && github.event.issue
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/users/himanshu4141/projects/1  # Update with actual project URL
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          labeled: false
+
+      - name: Move assigned issues to In Progress
+        if: github.event.action == 'assigned' && github.event.issue
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/users/himanshu4141/projects/1  # Update with actual project URL
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          labeled: false
+
+      - name: Add new PRs to Review
+        if: github.event.action == 'opened' && github.event.pull_request
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/users/himanshu4141/projects/1  # Update with actual project URL
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          labeled: false
+
+      - name: Move merged PRs to Done
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/users/himanshu4141/projects/1  # Update with actual project URL
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          labeled: false
+
+      - name: Move closed issues to Done
+        if: github.event.action == 'closed' && github.event.issue
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/users/himanshu4141/projects/1  # Update with actual project URL
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          labeled: false
+
+  # Optional: Auto-assign labels based on issue content
+  auto-label:
+    runs-on: ubuntu-latest
+    name: Auto-assign Labels
+    if: github.event.action == 'opened' && github.event.issue
+    
+    steps:
+      - name: Auto-label foundation issues
+        if: contains(github.event.issue.title, 'Setup') || contains(github.event.issue.title, 'Foundation') || contains(github.event.issue.title, 'TypeScript') || contains(github.event.issue.title, 'React')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['foundation']
+            })
+
+      - name: Auto-label mechanics issues
+        if: contains(github.event.issue.title, 'Zoom') || contains(github.event.issue.title, 'Navigation') || contains(github.event.issue.title, 'Logic') || contains(github.event.issue.title, 'Game')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['mechanics']
+            })
+
+      - name: Auto-label graphics issues
+        if: contains(github.event.issue.title, 'Graphics') || contains(github.event.issue.title, 'Design') || contains(github.event.issue.title, 'Animation') || contains(github.event.issue.title, 'Visual')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['graphics']
+            })
+
+      - name: Auto-label mobile issues
+        if: contains(github.event.issue.title, 'Mobile') || contains(github.event.issue.title, 'Touch') || contains(github.event.issue.title, 'Capacitor') || contains(github.event.issue.title, 'Responsive')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['mobile']
+            })
