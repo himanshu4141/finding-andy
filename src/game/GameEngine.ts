@@ -1,4 +1,4 @@
-import type { GameState, GameSettings, Point } from '../types'
+import type { GameState, GameSettings, Point, Character } from '../types'
 
 interface GameEngineState {
   canvas: HTMLCanvasElement
@@ -8,6 +8,14 @@ interface GameEngineState {
   settings: GameSettings
   lastTime: number
 }
+
+// Constants for the enhanced game
+const ARENA_WIDTH = 2400  // 3x larger than canvas width
+const ARENA_HEIGHT = 1800 // 3x larger than canvas height
+const ZOOM_LENS_RADIUS = 80
+const ZOOM_MAGNIFICATION = 2.0
+const CAMERA_LERP_SPEED = 0.1
+const CROWD_DENSITY = 300 // More characters in larger area
 
 // Functional approach for game engine creation
 export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettings) {
@@ -27,8 +35,74 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       score: 0,
       level: 1,
       timeRemaining: 60,
-      andyFound: false
+      andyFound: false,
+      camera: {
+        x: (ARENA_WIDTH - settings.canvasWidth) / 2,
+        y: (ARENA_HEIGHT - settings.canvasHeight) / 2,
+        targetX: (ARENA_WIDTH - settings.canvasWidth) / 2,
+        targetY: (ARENA_HEIGHT - settings.canvasHeight) / 2,
+        isDragging: false,
+        dragStartX: 0,
+        dragStartY: 0,
+        dragStartCameraX: 0,
+        dragStartCameraY: 0
+      },
+      zoomLens: {
+        x: settings.canvasWidth / 2,
+        y: settings.canvasHeight / 2,
+        radius: ZOOM_LENS_RADIUS,
+        magnification: ZOOM_MAGNIFICATION,
+        isActive: false
+      },
+      arena: {
+        width: ARENA_WIDTH,
+        height: ARENA_HEIGHT,
+        crowdDensity: CROWD_DENSITY,
+        characters: []
+      }
     }
+  }
+
+  // Helper functions
+  const generateCrowd = (): Character[] => {
+    const characters: Character[] = []
+    const charWidth = 40
+    const charHeight = 60
+    const padding = 10
+    
+    // Calculate grid dimensions based on arena size  
+    const cols = Math.floor((ARENA_WIDTH - padding * 2) / (charWidth + padding))
+    const rows = Math.floor((ARENA_HEIGHT - padding * 2) / (charHeight + padding))
+    
+    const startX = (ARENA_WIDTH - (cols * (charWidth + padding))) / 2
+    const startY = (ARENA_HEIGHT - (rows * (charHeight + padding))) / 2
+    
+    let characterCount = 0
+    const andyIndex = Math.floor(Math.random() * (cols * rows))
+    
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        if (characterCount >= CROWD_DENSITY) break
+        
+        const x = startX + col * (charWidth + padding)
+        const y = startY + row * (charHeight + padding)
+        
+        characters.push({
+          id: `char-${characterCount}`,
+          x,
+          y,
+          width: charWidth,
+          height: charHeight,
+          isAndy: characterCount === andyIndex,
+          spriteIndex: characterCount % 5
+        })
+        
+        characterCount++
+      }
+      if (characterCount >= CROWD_DENSITY) break
+    }
+    
+    return characters
   }
 
   // Setup functions
@@ -39,25 +113,146 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
 
   const setupEventListeners = () => {
     const handleResize = () => resizeCanvas()
+    
+    const handleMouseDown = (event: MouseEvent) => {
+      if (!state.gameState.isRunning) return
+      
+      const point = getCanvasCoordinates(event.clientX, event.clientY)
+      state.gameState.camera.isDragging = true
+      state.gameState.camera.dragStartX = point.x
+      state.gameState.camera.dragStartY = point.y
+      state.gameState.camera.dragStartCameraX = state.gameState.camera.x
+      state.gameState.camera.dragStartCameraY = state.gameState.camera.y
+      state.canvas.style.cursor = 'grabbing'
+    }
+    
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!state.gameState.isRunning) return
+      
+      const point = getCanvasCoordinates(event.clientX, event.clientY)
+      
+      // Update zoom lens position
+      state.gameState.zoomLens.x = point.x
+      state.gameState.zoomLens.y = point.y
+      state.gameState.zoomLens.isActive = true
+      
+      // Handle dragging
+      if (state.gameState.camera.isDragging) {
+        const deltaX = state.gameState.camera.dragStartX - point.x
+        const deltaY = state.gameState.camera.dragStartY - point.y
+        
+        state.gameState.camera.targetX = constrainCamera(
+          state.gameState.camera.dragStartCameraX + deltaX, 
+          'x'
+        )
+        state.gameState.camera.targetY = constrainCamera(
+          state.gameState.camera.dragStartCameraY + deltaY, 
+          'y'
+        )
+      }
+    }
+    
+    const handleMouseUp = () => {
+      state.gameState.camera.isDragging = false
+      state.canvas.style.cursor = 'grab'
+    }
+    
+    const handleMouseLeave = () => {
+      state.gameState.zoomLens.isActive = false
+      state.gameState.camera.isDragging = false
+      state.canvas.style.cursor = 'default'
+    }
+    
     const handleClick = (event: MouseEvent) => {
+      if (state.gameState.camera.isDragging) return
+      
       const point = getCanvasCoordinates(event.clientX, event.clientY)
       processClick(point)
     }
-    const handleTouch = (event: TouchEvent) => {
+    
+    // Touch event handlers
+    const handleTouchStart = (event: TouchEvent) => {
       event.preventDefault()
+      if (!state.gameState.isRunning) return
+      
       const touch = event.touches[0]
       const point = getCanvasCoordinates(touch.clientX, touch.clientY)
-      processClick(point)
+      
+      state.gameState.camera.isDragging = true
+      state.gameState.camera.dragStartX = point.x
+      state.gameState.camera.dragStartY = point.y
+      state.gameState.camera.dragStartCameraX = state.gameState.camera.x
+      state.gameState.camera.dragStartCameraY = state.gameState.camera.y
+      
+      // Also update zoom lens for touch
+      state.gameState.zoomLens.x = point.x
+      state.gameState.zoomLens.y = point.y
+      state.gameState.zoomLens.isActive = true
+    }
+    
+    const handleTouchMove = (event: TouchEvent) => {
+      event.preventDefault()
+      if (!state.gameState.isRunning) return
+      
+      const touch = event.touches[0]
+      const point = getCanvasCoordinates(touch.clientX, touch.clientY)
+      
+      // Update zoom lens position
+      state.gameState.zoomLens.x = point.x
+      state.gameState.zoomLens.y = point.y
+      
+      // Handle dragging
+      if (state.gameState.camera.isDragging) {
+        const deltaX = state.gameState.camera.dragStartX - point.x
+        const deltaY = state.gameState.camera.dragStartY - point.y
+        
+        state.gameState.camera.targetX = constrainCamera(
+          state.gameState.camera.dragStartCameraX + deltaX, 
+          'x'
+        )
+        state.gameState.camera.targetY = constrainCamera(
+          state.gameState.camera.dragStartCameraY + deltaY, 
+          'y'
+        )
+      }
+    }
+    
+    const handleTouchEnd = (event: TouchEvent) => {
+      event.preventDefault()
+      
+      if (!state.gameState.camera.isDragging && event.changedTouches.length === 1) {
+        const touch = event.changedTouches[0]
+        const point = getCanvasCoordinates(touch.clientX, touch.clientY)
+        processClick(point)
+      }
+      
+      state.gameState.camera.isDragging = false
+      state.gameState.zoomLens.isActive = false
     }
 
+    // Set initial cursor style
+    state.canvas.style.cursor = 'grab'
+
     window.addEventListener('resize', handleResize)
+    state.canvas.addEventListener('mousedown', handleMouseDown)
+    state.canvas.addEventListener('mousemove', handleMouseMove)
+    state.canvas.addEventListener('mouseup', handleMouseUp)
+    state.canvas.addEventListener('mouseleave', handleMouseLeave)
     state.canvas.addEventListener('click', handleClick)
-    state.canvas.addEventListener('touchstart', handleTouch)
+    state.canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
+    state.canvas.addEventListener('touchmove', handleTouchMove, { passive: false })
+    state.canvas.addEventListener('touchend', handleTouchEnd, { passive: false })
 
     return () => {
       window.removeEventListener('resize', handleResize)
+      state.canvas.removeEventListener('mousedown', handleMouseDown)
+      state.canvas.removeEventListener('mousemove', handleMouseMove)
+      state.canvas.removeEventListener('mouseup', handleMouseUp)
+      state.canvas.removeEventListener('mouseleave', handleMouseLeave)
       state.canvas.removeEventListener('click', handleClick)
-      state.canvas.removeEventListener('touchstart', handleTouch)
+      state.canvas.removeEventListener('touchstart', handleTouchStart)
+      state.canvas.removeEventListener('touchmove', handleTouchMove)
+      state.canvas.removeEventListener('touchend', handleTouchEnd)
     }
   }
 
@@ -101,11 +296,36 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     }
   }
 
+  const constrainCamera = (value: number, axis: 'x' | 'y'): number => {
+    if (axis === 'x') {
+      const maxX = state.gameState.arena.width - state.settings.canvasWidth
+      return Math.max(0, Math.min(maxX, value))
+    } else {
+      const maxY = state.gameState.arena.height - state.settings.canvasHeight
+      return Math.max(0, Math.min(maxY, value))
+    }
+  }
+
   const processClick = (point: Point) => {
     if (!state.gameState.isRunning) return
     
-    console.log('Click at:', point)
-    // TODO: Add hit detection logic here
+    // Convert screen coordinates to world coordinates
+    const worldX = point.x + state.gameState.camera.x
+    const worldY = point.y + state.gameState.camera.y
+    
+    // Check if click hits Andy
+    for (const character of state.gameState.arena.characters) {
+      if (character.isAndy && 
+          worldX >= character.x && 
+          worldX <= character.x + character.width &&
+          worldY >= character.y && 
+          worldY <= character.y + character.height) {
+        state.gameState.andyFound = true
+        state.gameState.score += 100
+        console.log('Andy found!', { worldX, worldY, character })
+        break
+      }
+    }
   }
 
   const start = () => {
@@ -115,6 +335,15 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     state.gameState.timeRemaining = 60
     state.gameState.score = 0
     state.gameState.andyFound = false
+    
+    // Generate new crowd
+    state.gameState.arena.characters = generateCrowd()
+    
+    // Reset camera to center
+    state.gameState.camera.x = (ARENA_WIDTH - state.settings.canvasWidth) / 2
+    state.gameState.camera.y = (ARENA_HEIGHT - state.settings.canvasHeight) / 2
+    state.gameState.camera.targetX = state.gameState.camera.x
+    state.gameState.camera.targetY = state.gameState.camera.y
     
     gameLoop(0)
   }
@@ -169,6 +398,11 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
         stop()
       }
     }
+    
+    // Smooth camera interpolation
+    const camera = state.gameState.camera
+    camera.x += (camera.targetX - camera.x) * CAMERA_LERP_SPEED
+    camera.y += (camera.targetY - camera.y) * CAMERA_LERP_SPEED
   }
 
   const render = () => {
@@ -176,60 +410,193 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     state.ctx.fillStyle = '#2c3e50'
     state.ctx.fillRect(0, 0, state.settings.canvasWidth, state.settings.canvasHeight)
     
-    // Draw UI
+    // Save context for transformations
+    state.ctx.save()
+    
+    // Apply camera offset
+    state.ctx.translate(-state.gameState.camera.x, -state.gameState.camera.y)
+    
+    // Draw arena background
+    drawArenaBackground()
+    
+    // Draw all characters in viewport
+    drawCrowd()
+    
+    // Restore context
+    state.ctx.restore()
+    
+    // Draw UI (not affected by camera)
     drawUI()
     
-    // Draw game content
-    drawPlaceholderCrowd()
+    // Draw zoom lens last (on top of everything)
+    if (state.gameState.zoomLens.isActive) {
+      drawZoomLens()
+    }
+  }
+
+  const drawArenaBackground = () => {
+    // Draw a subtle grid pattern for the arena
+    state.ctx.fillStyle = '#34495e'
+    state.ctx.fillRect(0, 0, state.gameState.arena.width, state.gameState.arena.height)
+    
+    // Draw grid lines
+    state.ctx.strokeStyle = '#3a526b'
+    state.ctx.lineWidth = 1
+    
+    const gridSize = 100
+    for (let x = 0; x <= state.gameState.arena.width; x += gridSize) {
+      state.ctx.beginPath()
+      state.ctx.moveTo(x, 0)
+      state.ctx.lineTo(x, state.gameState.arena.height)
+      state.ctx.stroke()
+    }
+    
+    for (let y = 0; y <= state.gameState.arena.height; y += gridSize) {
+      state.ctx.beginPath()
+      state.ctx.moveTo(0, y)
+      state.ctx.lineTo(state.gameState.arena.width, y)
+      state.ctx.stroke()
+    }
+  }
+
+  const drawCrowd = () => {
+    const camera = state.gameState.camera
+    
+    // Only draw characters that are visible in the viewport (with some margin)
+    const margin = 100
+    const viewLeft = camera.x - margin
+    const viewRight = camera.x + state.settings.canvasWidth + margin
+    const viewTop = camera.y - margin
+    const viewBottom = camera.y + state.settings.canvasHeight + margin
+    
+    for (const character of state.gameState.arena.characters) {
+      // Skip characters that are not in view
+      if (character.x + character.width < viewLeft || 
+          character.x > viewRight || 
+          character.y + character.height < viewTop || 
+          character.y > viewBottom) {
+        continue
+      }
+      
+      drawCharacter(character)
+    }
+  }
+
+  const drawCharacter = (character: Character) => {
+    const { x, y, width, height, isAndy } = character
+    
+    // Body color
+    state.ctx.fillStyle = isAndy ? '#ff6b6b' : '#4ecdc4'
+    state.ctx.fillRect(x + 5, y + 10, width - 10, height - 20)
+    
+    // Head
+    state.ctx.fillStyle = '#fdbcb4'
+    state.ctx.fillRect(x + 10, y + 5, width - 20, 15)
+    
+    // Eyes
+    state.ctx.fillStyle = '#000000'
+    state.ctx.fillRect(x + 12, y + 8, 3, 3)
+    state.ctx.fillRect(x + width - 15, y + 8, 3, 3)
+    
+    // Andy label (only visible when close enough or in zoom lens)
+    if (isAndy) {
+      state.ctx.fillStyle = '#ffffff'
+      state.ctx.font = '10px Arial'
+      state.ctx.textAlign = 'center'
+      state.ctx.fillText('A', x + width / 2, y + height + 10)
+    }
+  }
+
+  const drawZoomLens = () => {
+    const lens = state.gameState.zoomLens
+    const camera = state.gameState.camera
+    
+    // Calculate the world position that the lens is looking at
+    const worldX = lens.x + camera.x
+    const worldY = lens.y + camera.y
+    
+    // Create circular clipping path
+    state.ctx.save()
+    state.ctx.beginPath()
+    state.ctx.arc(lens.x, lens.y, lens.radius, 0, Math.PI * 2)
+    state.ctx.clip()
+    
+    // Fill background
+    state.ctx.fillStyle = '#2c3e50'
+    state.ctx.fillRect(lens.x - lens.radius, lens.y - lens.radius, lens.radius * 2, lens.radius * 2)
+    
+    // Apply zoom transformation
+    state.ctx.save()
+    state.ctx.translate(lens.x, lens.y)
+    state.ctx.scale(lens.magnification, lens.magnification)
+    state.ctx.translate(-worldX, -worldY)
+    
+    // Draw magnified content
+    drawArenaBackground()
+    
+    // Draw characters in the lens area
+    const lensMargin = lens.radius / lens.magnification + 50
+    const lensLeft = worldX - lensMargin
+    const lensRight = worldX + lensMargin
+    const lensTop = worldY - lensMargin
+    const lensBottom = worldY + lensMargin
+    
+    for (const character of state.gameState.arena.characters) {
+      if (character.x + character.width >= lensLeft && 
+          character.x <= lensRight && 
+          character.y + character.height >= lensTop && 
+          character.y <= lensBottom) {
+        drawCharacter(character)
+      }
+    }
+    
+    state.ctx.restore() // Restore zoom transformation
+    
+    // Draw lens border
+    state.ctx.strokeStyle = '#ffffff'
+    state.ctx.lineWidth = 3
+    state.ctx.beginPath()
+    state.ctx.arc(lens.x, lens.y, lens.radius, 0, Math.PI * 2)
+    state.ctx.stroke()
+    
+    // Draw inner border for better visibility
+    state.ctx.strokeStyle = '#000000'
+    state.ctx.lineWidth = 1
+    state.ctx.beginPath()
+    state.ctx.arc(lens.x, lens.y, lens.radius - 2, 0, Math.PI * 2)
+    state.ctx.stroke()
+    
+    state.ctx.restore() // Restore clipping
   }
 
   const drawUI = () => {
     state.ctx.fillStyle = '#ffffff'
-    state.ctx.font = '20px Arial'
-    state.ctx.textAlign = 'left'
-    state.ctx.fillText(`Score: ${state.gameState.score}`, 20, 40)
-    state.ctx.fillText(`Time: ${Math.ceil(state.gameState.timeRemaining)}`, 20, 70)
-    state.ctx.fillText(`Level: ${state.gameState.level}`, 20, 100)
-    
-    state.ctx.textAlign = 'center'
     state.ctx.font = '16px Arial'
-    state.ctx.fillText('Find Andy in the crowd!', state.settings.canvasWidth / 2, 30)
-  }
-
-  const drawPlaceholderCrowd = () => {
-    const characters = 50
-    const cols = 10
-    const rows = 5
-    const charWidth = 40
-    const charHeight = 60
+    state.ctx.textAlign = 'left'
+    state.ctx.fillText(`Score: ${state.gameState.score}`, 20, 30)
+    state.ctx.fillText(`Time: ${Math.ceil(state.gameState.timeRemaining)}`, 20, 50)
+    state.ctx.fillText(`Level: ${state.gameState.level}`, 20, 70)
     
-    const startX = (state.settings.canvasWidth - (cols * charWidth)) / 2
-    const startY = (state.settings.canvasHeight - (rows * charHeight)) / 2 + 50
+    // Instructions
+    state.ctx.textAlign = 'center'
+    state.ctx.font = '14px Arial'
+    state.ctx.fillStyle = '#ecf0f1'
+    state.ctx.fillText('Drag to explore • Hover for zoom lens', state.settings.canvasWidth / 2, state.settings.canvasHeight - 20)
     
-    for (let i = 0; i < characters; i++) {
-      const row = Math.floor(i / cols)
-      const col = i % cols
-      
-      const x = startX + col * charWidth
-      const y = startY + row * charHeight
-      
-      const isAndy = i === 23
-      state.ctx.fillStyle = isAndy ? '#ff6b6b' : '#4ecdc4'
-      state.ctx.fillRect(x + 5, y + 10, charWidth - 10, charHeight - 20)
-      
-      state.ctx.fillStyle = '#fdbcb4'
-      state.ctx.fillRect(x + 10, y + 5, charWidth - 20, 15)
-      
-      state.ctx.fillStyle = '#000000'
-      state.ctx.fillRect(x + 12, y + 8, 3, 3)
-      state.ctx.fillRect(x + charWidth - 15, y + 8, 3, 3)
-      
-      if (isAndy) {
-        state.ctx.fillStyle = '#ffffff'
-        state.ctx.font = '12px Arial'
-        state.ctx.textAlign = 'center'
-        state.ctx.fillText('ANDY', x + charWidth / 2, y + charHeight + 15)
-      }
+    // Game status indicator
+    if (state.gameState.andyFound) {
+      state.ctx.fillStyle = '#2ecc71'
+      state.ctx.font = 'bold 24px Arial'
+      state.ctx.textAlign = 'center'
+      state.ctx.fillText('ANDY FOUND! 🎉', state.settings.canvasWidth / 2, state.settings.canvasHeight / 2)
+    }
+    
+    // Drag indicator
+    if (state.gameState.camera.isDragging) {
+      state.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'
+      state.ctx.font = '12px Arial'
+      state.ctx.textAlign = 'right'
+      state.ctx.fillText('Dragging...', state.settings.canvasWidth - 20, 30)
     }
   }
 
