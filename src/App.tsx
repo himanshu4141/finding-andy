@@ -1,0 +1,69 @@
+import { useState } from 'react'
+import { GameCanvas } from './components'
+import type { GameSettings, GameState } from './types'
+import './App.css'
+
+const DEFAULT_SETTINGS: GameSettings = {
+  canvasWidth: 800,
+  canvasHeight: 600,
+  pixelScale: 1,
+  difficulty: 'medium'
+}
+
+function App() {
+  const [gameState, setGameState] = useState<GameState>({
+    isRunning: false,
+    score: 0,
+    level: 1,
+    timeRemaining: 60,
+    andyFound: false
+  })
+
+  const handleGameStateChange = (newGameState: GameState) => {
+    setGameState(newGameState)
+  }
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <h1>Finding Andy</h1>
+        <p>Can you spot Andy in the crowd? Click on him to score points!</p>
+      </header>
+
+      <main className="app-main">
+        <div className="game-stats">
+          <div className="stat-item">
+            <span className="stat-label">Score:</span>
+            <span className="stat-value">{gameState.score}</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Level:</span>
+            <span className="stat-value">{gameState.level}</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Time:</span>
+            <span className="stat-value">{Math.ceil(gameState.timeRemaining)}s</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Status:</span>
+            <span className="stat-value">
+              {gameState.isRunning ? 'Playing' : 'Stopped'}
+            </span>
+          </div>
+        </div>
+
+        <GameCanvas 
+          settings={DEFAULT_SETTINGS}
+          onGameStateChange={handleGameStateChange}
+        />
+      </main>
+
+      <footer className="app-footer">
+        <p>Built with React, TypeScript, and HTML5 Canvas</p>
+        <p>Mobile-ready with Capacitor support</p>
+      </footer>
+    </div>
+  )
+}
+
+export default App
