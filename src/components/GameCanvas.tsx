@@ -1,81 +1,81 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { GameEngine } from '../game';
-import type { GameSettings, GameState } from '../types';
-import './GameCanvas.css';
+import React, { useRef, useEffect, useState } from 'react'
+import { GameEngine } from '../game'
+import type { GameSettings, GameState } from '../types'
+import './GameCanvas.css'
 
 interface GameCanvasProps {
-  settings: GameSettings;
-  onGameStateChange?: (gameState: GameState) => void;
+  settings: GameSettings
+  onGameStateChange?: (gameState: GameState) => void
 }
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({ 
   settings, 
   onGameStateChange 
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameEngineRef = useRef<GameEngine | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const gameEngineRef = useRef<GameEngine | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current) return
 
     try {
       // Initialize game engine
-      gameEngineRef.current = new GameEngine(canvasRef.current, settings);
-      setIsLoading(false);
-      setError(null);
+      gameEngineRef.current = new GameEngine(canvasRef.current, settings)
+      setIsLoading(false)
+      setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to initialize game');
-      setIsLoading(false);
+      setError(err instanceof Error ? err.message : 'Failed to initialize game')
+      setIsLoading(false)
     }
 
     // Cleanup on unmount
     return () => {
       if (gameEngineRef.current) {
-        gameEngineRef.current.destroy();
-        gameEngineRef.current = null;
+        gameEngineRef.current.destroy()
+        gameEngineRef.current = null
       }
-    };
-  }, [settings]);
+    }
+  }, [settings])
 
   // Game state polling effect
   useEffect(() => {
-    if (!gameEngineRef.current || !onGameStateChange) return;
+    if (!gameEngineRef.current || !onGameStateChange) return
 
     const interval = setInterval(() => {
       if (gameEngineRef.current) {
-        const gameState = gameEngineRef.current.getGameState();
-        onGameStateChange(gameState);
+        const gameState = gameEngineRef.current.getGameState()
+        onGameStateChange(gameState)
       }
-    }, 100); // Poll every 100ms
+    }, 100) // Poll every 100ms
 
-    return () => clearInterval(interval);
-  }, [onGameStateChange]);
+    return () => clearInterval(interval)
+  }, [onGameStateChange])
 
   const startGame = () => {
     if (gameEngineRef.current) {
-      gameEngineRef.current.start();
+      gameEngineRef.current.start()
     }
-  };
+  }
 
   const stopGame = () => {
     if (gameEngineRef.current) {
-      gameEngineRef.current.stop();
+      gameEngineRef.current.stop()
     }
-  };
+  }
 
   const pauseGame = () => {
     if (gameEngineRef.current) {
-      gameEngineRef.current.pause();
+      gameEngineRef.current.pause()
     }
-  };
+  }
 
   const resumeGame = () => {
     if (gameEngineRef.current) {
-      gameEngineRef.current.resume();
+      gameEngineRef.current.resume()
     }
-  };
+  }
 
   if (error) {
     return (
@@ -86,7 +86,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           Reload Game
         </button>
       </div>
-    );
+    )
   }
 
   return (
@@ -125,5 +125,5 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       )}
     </div>
-  );
-};
+  )
+}

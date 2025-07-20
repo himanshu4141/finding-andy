@@ -1,1 +1,1 @@
-export { GameEngine } from './GameEngine';
+export { GameEngine, createGameEngine } from './GameEngine'

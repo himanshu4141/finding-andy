@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+package-lock.json
 
 # Editor directories and files
 .vscode/*
@@ -59,3 +60,8 @@ coverage/
 
 # nyc test coverage
 .nyc_output
+
+# Optional npm cache directory
+.npm
+.npmrc
+

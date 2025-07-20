@@ -1,4 +1,4 @@
-You are an expert in Solidity, TypeScript, Node.js, Next.js App Router, React, Vite, Viem v2, Wagmi v2, Shadcn UI, Radix UI, and Tailwind Aria.  
+You are an expert in TypeScript, React, Vite, HTML5 Canvas, CSS3, and modern front-end development practices.
 
 Key Principles
 
@@ -13,11 +13,13 @@ Key Principles
 JavaScript/TypeScript
 
 - Use "function" keyword for pure functions. Omit semicolons.
-- Use TypeScript for all code. Prefer interfaces over types. Avoid enums, use maps.
+- Use TypeScript for all code. Prefer interfaces over types. Avoid enums, use unions or maps.
 - File structure: Exported component, subcomponents, helpers, static content, types.
 - Avoid unnecessary curly braces in conditional statements.
 - For single-line statements in conditionals, omit curly braces.
-- Use concise, one-line syntax for simple conditional statements (e.g., if (condition) doSomething()).  
+- Use concise, one-line syntax for simple conditional statements (e.g., if (condition) doSomething()).
+- Prefer functional programming patterns over classes where possible.
+- Use proper module imports/exports with clear naming conventions.  
 
 Error Handling and Validation
 
@@ -30,41 +32,43 @@ Error Handling and Validation
   - Implement proper error logging and user-friendly error messages.
   - Consider using custom error types or error factories for consistent error handling.  
 
-React/Next.js
+React/Vite
 
 - Use functional components and TypeScript interfaces.
 - Use declarative JSX.
 - Use function, not const, for components.
-- Use Shadcn UI, Radix, and Tailwind Aria for components and styling.
-- Implement responsive design with Tailwind CSS.
+- Use CSS modules or vanilla CSS for styling.
+- Implement responsive design with modern CSS techniques.
 - Use mobile-first approach for responsive design.
 - Place static content and interfaces at file end.
 - Use content variables for static content outside render functions.
-- Minimize 'use client', 'useEffect', and 'setState'. Favor RSC.
-- Use Zod for form validation.
-- Wrap client components in Suspense with fallback.
+- Minimize 'useEffect' and 'setState'. Prefer derived state and memo patterns.
+- Use React Hook Form with Zod for form validation when needed.
+- Wrap components in Suspense with fallback for code splitting.
 - Use dynamic loading for non-critical components.
 - Optimize images: WebP format, size data, lazy loading.
-- Model expected errors as return values: Avoid using try/catch for expected errors in Server Actions. Use useActionState to manage these errors and return them to the client.
-- Use error boundaries for unexpected errors: Implement error boundaries using error.tsx and global-error.tsx files to handle unexpected errors and provide a fallback UI.
-- Use useActionState with react-hook-form for form validation.
-- Code in services/ dir always throw user-friendly errors that tanStackQuery can catch and show to the user.
-- Use next-safe-action for all server actions:
-  - Implement type-safe server actions with proper validation.
-  - Utilize the action function from next-safe-action for creating actions.
-  - Define input schemas using Zod for robust type checking and validation.
-  - Handle errors gracefully and return appropriate responses.
-  - Use import type { ActionResponse } from '@/types/actions'
-  - Ensure all server actions return the ActionResponse type
-  - Implement consistent error handling and success responses using ActionResponse  
+- Handle errors gracefully with error boundaries.
+- Use proper event handlers for Canvas interactions and touch events.
+
+Game Development Patterns
+
+- Use functional programming for game logic when possible, avoid classes unless necessary for performance.
+- Implement proper game loop patterns with requestAnimationFrame.
+- Use Canvas context efficiently - minimize context switches and state changes.
+- Implement proper coordinate transformation for responsive canvas scaling.
+- Handle both mouse and touch events for cross-platform compatibility.
+- Use proper memory management - clean up event listeners and animation frames.
+- Implement game state management with clear separation of concerns.
+- Use TypeScript strictly for game entities and state management.
+- Optimize rendering performance - only redraw when necessary.
+- Implement proper asset loading and management patterns.  
 
 Key Conventions
 
-1. Rely on Next.js App Router for state changes.
-2. Prioritize Web Vitals (LCP, CLS, FID).
-3. Minimize 'use client' usage:
-  - Prefer server components and Next.js SSR features.
-  - Use 'use client' only for Web API access in small components.
-  - Avoid using 'use client' for data fetching or state management.
-  Refer to Next.js documentation for Data Fetching, Rendering, and Routing best practices.
-  - https://nextjs.org/docs
+1. Rely on React state management and modern hooks for state changes.
+2. Prioritize performance optimization (minimize re-renders, use React.memo when needed).
+3. Use Vite's fast build and hot reload capabilities effectively.
+4. Implement proper Canvas rendering patterns for game development.
+5. Use CSS-in-JS sparingly - prefer CSS modules or vanilla CSS.
+6. Implement proper touch and mouse event handling for mobile compatibility.
+7. Use modern Web APIs effectively (Canvas, Touch Events, Resize Observer).

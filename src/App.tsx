@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { GameCanvas } from './components';
-import type { GameSettings, GameState } from './types';
-import './App.css';
+import { useState } from 'react'
+import { GameCanvas } from './components'
+import type { GameSettings, GameState } from './types'
+import './App.css'
 
 const DEFAULT_SETTINGS: GameSettings = {
   canvasWidth: 800,
   canvasHeight: 600,
   pixelScale: 1,
   difficulty: 'medium'
-};
+}
 
 function App() {
   const [gameState, setGameState] = useState<GameState>({
@@ -17,11 +17,11 @@ function App() {
     level: 1,
     timeRemaining: 60,
     andyFound: false
-  });
+  })
 
   const handleGameStateChange = (newGameState: GameState) => {
-    setGameState(newGameState);
-  };
+    setGameState(newGameState)
+  }
 
   return (
     <div className="app">
@@ -63,7 +63,7 @@ function App() {
         <p>Mobile-ready with Capacitor support</p>
       </footer>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App
