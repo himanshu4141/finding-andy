@@ -17,6 +17,8 @@ function App() {
     level: 1,
     timeRemaining: 60,
     andyFound: false,
+    companionFound: false,
+    bothFound: false,
     camera: {
       x: 0,
       y: 0,
@@ -40,6 +42,24 @@ function App() {
       height: 0,
       crowdDensity: 0,
       characters: []
+    },
+    victory: {
+      isActive: false,
+      stage: 'none',
+      duration: 0,
+      particles: [],
+      shakeIntensity: 0,
+      celebrationStartTime: 0
+    },
+    feedback: {
+      shake: {
+        isActive: false,
+        duration: 0,
+        intensity: 0,
+        startTime: 0
+      },
+      lastMissPosition: null,
+      missCount: 0
     }
   })
 
@@ -69,9 +89,26 @@ function App() {
             <span className="stat-value">{Math.ceil(gameState.timeRemaining)}s</span>
           </div>
           <div className="stat-item">
+            <span className="stat-label">Andy:</span>
+            <span className={`stat-value ${gameState.andyFound ? 'found' : 'missing'}`}>
+              {gameState.andyFound ? '✓ Found' : '○ Missing'}
+            </span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Companion:</span>
+            <span className={`stat-value ${gameState.companionFound ? 'found' : 'missing'}`}>
+              {gameState.companionFound ? '✓ Found' : '○ Missing'}
+            </span>
+          </div>
+          <div className="stat-item">
             <span className="stat-label">Status:</span>
             <span className="stat-value">
-              {gameState.isRunning ? 'Playing' : 'Stopped'}
+              {gameState.bothFound 
+                ? '🎉 Victory!' 
+                : gameState.isRunning 
+                  ? 'Playing' 
+                  : 'Stopped'
+              }
             </span>
           </div>
         </div>

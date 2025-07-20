@@ -147,3 +147,13 @@
     max-height: 70vh;
   }
 }
+
+/* Victory and status styling */
+.stat-value.found {
+  color: #2ecc71;
+  font-weight: bold;
+}
+
+.stat-value.missing {
+  color: #95a5a6;
+}

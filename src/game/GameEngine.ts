@@ -1,4 +1,6 @@
 import type { GameState, GameSettings, Point, Character } from '../types'
+import { createAudioManager } from './AudioManager'
+import { createCelebrationParticles, updateParticles, renderParticles } from './ParticleSystem'
 
 interface GameEngineState {
   canvas: HTMLCanvasElement
@@ -7,6 +9,7 @@ interface GameEngineState {
   gameState: GameState
   settings: GameSettings
   lastTime: number
+  audioManager: ReturnType<typeof createAudioManager>
 }
 
 // Constants for the enhanced game
@@ -16,6 +19,8 @@ const ZOOM_LENS_RADIUS = 80
 const ZOOM_MAGNIFICATION = 2.0
 const CAMERA_LERP_SPEED = 0.1
 const CROWD_DENSITY = 300 // More characters in larger area
+const VICTORY_DURATION = 5000 // 5 seconds of celebration
+const SHAKE_DURATION = 300 // 300ms shake on miss
 
 // Functional approach for game engine creation
 export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettings) {
@@ -30,12 +35,15 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     animationId: null,
     settings,
     lastTime: 0,
+    audioManager: createAudioManager(),
     gameState: {
       isRunning: false,
       score: 0,
       level: 1,
       timeRemaining: 60,
       andyFound: false,
+      companionFound: false,
+      bothFound: false,
       camera: {
         x: (ARENA_WIDTH - settings.canvasWidth) / 2,
         y: (ARENA_HEIGHT - settings.canvasHeight) / 2,
@@ -59,6 +67,24 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
         height: ARENA_HEIGHT,
         crowdDensity: CROWD_DENSITY,
         characters: []
+      },
+      victory: {
+        isActive: false,
+        stage: 'none',
+        duration: 0,
+        particles: [],
+        shakeIntensity: 0,
+        celebrationStartTime: 0
+      },
+      feedback: {
+        shake: {
+          isActive: false,
+          duration: 0,
+          intensity: 0,
+          startTime: 0
+        },
+        lastMissPosition: null,
+        missCount: 0
       }
     }
   }
@@ -79,6 +105,13 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     
     let characterCount = 0
     const andyIndex = Math.floor(Math.random() * (cols * rows))
+    const companionIndex = Math.floor(Math.random() * (cols * rows))
+    
+    // Ensure Andy and companion are different characters
+    let adjustedCompanionIndex = companionIndex
+    if (companionIndex === andyIndex) {
+      adjustedCompanionIndex = (companionIndex + 1) % (cols * rows)
+    }
     
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
@@ -94,6 +127,7 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
           width: charWidth,
           height: charHeight,
           isAndy: characterCount === andyIndex,
+          isCompanion: characterCount === adjustedCompanionIndex,
           spriteIndex: characterCount % 5
         })
         
@@ -313,19 +347,80 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     const worldX = point.x + state.gameState.camera.x
     const worldY = point.y + state.gameState.camera.y
     
-    // Check if click hits Andy
+    let foundCharacter = false
+    
+    // Check if click hits any special character
     for (const character of state.gameState.arena.characters) {
-      if (character.isAndy && 
-          worldX >= character.x && 
+      if (worldX >= character.x && 
           worldX <= character.x + character.width &&
           worldY >= character.y && 
           worldY <= character.y + character.height) {
-        state.gameState.andyFound = true
-        state.gameState.score += 100
-        console.log('Andy found!', { worldX, worldY, character })
-        break
+        
+        if (character.isAndy && !state.gameState.andyFound) {
+          state.gameState.andyFound = true
+          state.gameState.score += 100
+          foundCharacter = true
+          state.audioManager.playSound('victory', 0.8)
+          console.log('Andy found!', { worldX, worldY, character })
+          break
+        } else if (character.isCompanion && !state.gameState.companionFound) {
+          state.gameState.companionFound = true
+          state.gameState.score += 100
+          foundCharacter = true
+          state.audioManager.playSound('victory', 0.8)
+          console.log('Companion found!', { worldX, worldY, character })
+          break
+        }
       }
     }
+    
+    // Check if both characters found
+    if (state.gameState.andyFound && state.gameState.companionFound && !state.gameState.bothFound) {
+      state.gameState.bothFound = true
+      triggerVictorySequence()
+    }
+    
+    // If no special character was clicked, trigger miss feedback
+    if (!foundCharacter) {
+      triggerMissFeedback({ x: worldX, y: worldY })
+    }
+  }
+
+  const triggerVictorySequence = () => {
+    const currentTime = performance.now()
+    state.gameState.victory.isActive = true
+    state.gameState.victory.stage = 'confetti'
+    state.gameState.victory.celebrationStartTime = currentTime
+    state.gameState.victory.duration = VICTORY_DURATION
+    state.gameState.victory.particles = createCelebrationParticles(
+      state.settings.canvasWidth, 
+      state.settings.canvasHeight
+    )
+    
+    // Play celebration sounds
+    state.audioManager.playSound('applause')
+    setTimeout(() => state.audioManager.playSound('confetti'), 500)
+    
+    // Award bonus points
+    state.gameState.score += 500
+    
+    console.log('Victory sequence triggered!')
+  }
+
+  const triggerMissFeedback = (missPosition: Point) => {
+    const currentTime = performance.now()
+    
+    state.gameState.feedback.missCount += 1
+    state.gameState.feedback.lastMissPosition = missPosition
+    state.gameState.feedback.shake.isActive = true
+    state.gameState.feedback.shake.startTime = currentTime
+    state.gameState.feedback.shake.duration = SHAKE_DURATION
+    state.gameState.feedback.shake.intensity = 5
+    
+    // Play miss sound
+    state.audioManager.playSound('miss')
+    
+    console.log('Miss feedback triggered at', missPosition)
   }
 
   const start = () => {
@@ -335,6 +430,24 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     state.gameState.timeRemaining = 60
     state.gameState.score = 0
     state.gameState.andyFound = false
+    state.gameState.companionFound = false
+    state.gameState.bothFound = false
+    
+    // Reset victory state
+    state.gameState.victory.isActive = false
+    state.gameState.victory.stage = 'none'
+    state.gameState.victory.duration = 0
+    state.gameState.victory.particles = []
+    state.gameState.victory.shakeIntensity = 0
+    state.gameState.victory.celebrationStartTime = 0
+    
+    // Reset feedback state
+    state.gameState.feedback.shake.isActive = false
+    state.gameState.feedback.shake.duration = 0
+    state.gameState.feedback.shake.intensity = 0
+    state.gameState.feedback.shake.startTime = 0
+    state.gameState.feedback.lastMissPosition = null
+    state.gameState.feedback.missCount = 0
     
     // Generate new crowd
     state.gameState.arena.characters = generateCrowd()
@@ -389,13 +502,49 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   }
 
   const update = (deltaTime: number) => {
+    const currentTime = performance.now()
+    
     // Update timer
-    if (state.gameState.timeRemaining > 0) {
+    if (state.gameState.timeRemaining > 0 && !state.gameState.bothFound) {
       state.gameState.timeRemaining -= deltaTime / 1000
       
       if (state.gameState.timeRemaining <= 0) {
         state.gameState.timeRemaining = 0
         stop()
+      }
+    }
+    
+    // Update victory animations
+    if (state.gameState.victory.isActive) {
+      const elapsed = currentTime - state.gameState.victory.celebrationStartTime
+      
+      // Update particles
+      state.gameState.victory.particles = updateParticles(state.gameState.victory.particles, deltaTime)
+      
+      // Manage victory stages
+      if (elapsed > state.gameState.victory.duration) {
+        state.gameState.victory.isActive = false
+        state.gameState.victory.stage = 'complete'
+        // Game continues or could be stopped here
+      } else if (elapsed > state.gameState.victory.duration * 0.7) {
+        state.gameState.victory.stage = 'celebration'
+      }
+      
+      // Add celebration shake effect
+      state.gameState.victory.shakeIntensity = Math.sin(elapsed * 0.01) * 2
+    }
+    
+    // Update shake feedback
+    if (state.gameState.feedback.shake.isActive) {
+      const elapsed = currentTime - state.gameState.feedback.shake.startTime
+      
+      if (elapsed > state.gameState.feedback.shake.duration) {
+        state.gameState.feedback.shake.isActive = false
+        state.gameState.feedback.shake.intensity = 0
+      } else {
+        // Decrease shake intensity over time
+        const progress = elapsed / state.gameState.feedback.shake.duration
+        state.gameState.feedback.shake.intensity = 5 * (1 - progress)
       }
     }
     
@@ -406,12 +555,29 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   }
 
   const render = () => {
+    // Calculate shake offset
+    let shakeX = 0
+    let shakeY = 0
+    
+    if (state.gameState.feedback.shake.isActive) {
+      shakeX = (Math.random() - 0.5) * state.gameState.feedback.shake.intensity
+      shakeY = (Math.random() - 0.5) * state.gameState.feedback.shake.intensity
+    }
+    
+    if (state.gameState.victory.isActive) {
+      shakeX += (Math.random() - 0.5) * state.gameState.victory.shakeIntensity
+      shakeY += (Math.random() - 0.5) * state.gameState.victory.shakeIntensity
+    }
+    
     // Clear canvas
     state.ctx.fillStyle = '#2c3e50'
     state.ctx.fillRect(0, 0, state.settings.canvasWidth, state.settings.canvasHeight)
     
     // Save context for transformations
     state.ctx.save()
+    
+    // Apply shake effect
+    state.ctx.translate(shakeX, shakeY)
     
     // Apply camera offset
     state.ctx.translate(-state.gameState.camera.x, -state.gameState.camera.y)
@@ -425,12 +591,23 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     // Restore context
     state.ctx.restore()
     
-    // Draw UI (not affected by camera)
+    // Draw victory particles (not affected by camera)
+    if (state.gameState.victory.isActive && state.gameState.victory.particles.length > 0) {
+      state.ctx.save()
+      state.ctx.translate(shakeX, shakeY) // Apply shake to particles too
+      renderParticles(state.ctx, state.gameState.victory.particles)
+      state.ctx.restore()
+    }
+    
+    // Draw UI (not affected by camera or shake for readability)
     drawUI()
     
     // Draw zoom lens last (on top of everything)
     if (state.gameState.zoomLens.isActive) {
+      state.ctx.save()
+      state.ctx.translate(shakeX, shakeY) // Apply shake to zoom lens
       drawZoomLens()
+      state.ctx.restore()
     }
   }
 
@@ -483,10 +660,17 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   }
 
   const drawCharacter = (character: Character) => {
-    const { x, y, width, height, isAndy } = character
+    const { x, y, width, height, isAndy, isCompanion } = character
     
     // Body color
-    state.ctx.fillStyle = isAndy ? '#ff6b6b' : '#4ecdc4'
+    let bodyColor = '#4ecdc4' // Default crowd color
+    if (isAndy) {
+      bodyColor = '#ff6b6b' // Red for Andy
+    } else if (isCompanion) {
+      bodyColor = '#45b7d1' // Blue for companion
+    }
+    
+    state.ctx.fillStyle = bodyColor
     state.ctx.fillRect(x + 5, y + 10, width - 10, height - 20)
     
     // Head
@@ -498,12 +682,25 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     state.ctx.fillRect(x + 12, y + 8, 3, 3)
     state.ctx.fillRect(x + width - 15, y + 8, 3, 3)
     
-    // Andy label (only visible when close enough or in zoom lens)
+    // Character labels (only visible when close enough or in zoom lens)
     if (isAndy) {
       state.ctx.fillStyle = '#ffffff'
       state.ctx.font = '10px Arial'
       state.ctx.textAlign = 'center'
       state.ctx.fillText('A', x + width / 2, y + height + 10)
+    } else if (isCompanion) {
+      state.ctx.fillStyle = '#ffffff'
+      state.ctx.font = '10px Arial'
+      state.ctx.textAlign = 'center'
+      state.ctx.fillText('C', x + width / 2, y + height + 10)
+    }
+    
+    // Add found indicator
+    if ((isAndy && state.gameState.andyFound) || (isCompanion && state.gameState.companionFound)) {
+      // Draw checkmark or glow effect
+      state.ctx.strokeStyle = '#2ecc71'
+      state.ctx.lineWidth = 3
+      state.ctx.strokeRect(x - 2, y - 2, width + 4, height + 4)
     }
   }
 
@@ -577,18 +774,59 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     state.ctx.fillText(`Time: ${Math.ceil(state.gameState.timeRemaining)}`, 20, 50)
     state.ctx.fillText(`Level: ${state.gameState.level}`, 20, 70)
     
+    // Character found indicators
+    const andyStatus = state.gameState.andyFound ? '✓' : '○'
+    const companionStatus = state.gameState.companionFound ? '✓' : '○'
+    state.ctx.fillText(`Andy: ${andyStatus}`, 20, 90)
+    state.ctx.fillText(`Companion: ${companionStatus}`, 20, 110)
+    
     // Instructions
     state.ctx.textAlign = 'center'
     state.ctx.font = '14px Arial'
     state.ctx.fillStyle = '#ecf0f1'
-    state.ctx.fillText('Drag to explore • Hover for zoom lens', state.settings.canvasWidth / 2, state.settings.canvasHeight - 20)
+    state.ctx.fillText('Drag to explore • Hover for zoom lens • Find both characters!', state.settings.canvasWidth / 2, state.settings.canvasHeight - 20)
     
-    // Game status indicator
-    if (state.gameState.andyFound) {
+    // Game status indicators
+    if (state.gameState.bothFound && state.gameState.victory.isActive) {
+      // Victory message
       state.ctx.fillStyle = '#2ecc71'
-      state.ctx.font = 'bold 24px Arial'
+      state.ctx.font = 'bold 32px Arial'
       state.ctx.textAlign = 'center'
-      state.ctx.fillText('ANDY FOUND! 🎉', state.settings.canvasWidth / 2, state.settings.canvasHeight / 2)
+      
+      let message = 'BOTH FOUND!'
+      if (state.gameState.victory.stage === 'celebration') {
+        message = '🎉 AMAZING! 🎉'
+      }
+      
+      // Add text shadow for better visibility
+      state.ctx.fillStyle = '#000000'
+      state.ctx.fillText(message, state.settings.canvasWidth / 2 + 2, state.settings.canvasHeight / 2 + 2)
+      state.ctx.fillStyle = '#2ecc71'
+      state.ctx.fillText(message, state.settings.canvasWidth / 2, state.settings.canvasHeight / 2)
+      
+      // Bonus message
+      state.ctx.font = 'bold 18px Arial'
+      state.ctx.fillStyle = '#f1c40f'
+      state.ctx.fillText('BONUS: +500 points!', state.settings.canvasWidth / 2, state.settings.canvasHeight / 2 + 40)
+      
+    } else if (state.gameState.andyFound && !state.gameState.companionFound) {
+      state.ctx.fillStyle = '#f39c12'
+      state.ctx.font = 'bold 20px Arial'
+      state.ctx.textAlign = 'center'
+      state.ctx.fillText('Andy found! Find the companion!', state.settings.canvasWidth / 2, state.settings.canvasHeight / 2)
+    } else if (state.gameState.companionFound && !state.gameState.andyFound) {
+      state.ctx.fillStyle = '#f39c12'
+      state.ctx.font = 'bold 20px Arial'
+      state.ctx.textAlign = 'center'
+      state.ctx.fillText('Companion found! Find Andy!', state.settings.canvasWidth / 2, state.settings.canvasHeight / 2)
+    }
+    
+    // Miss feedback
+    if (state.gameState.feedback.missCount > 0) {
+      state.ctx.fillStyle = 'rgba(231, 76, 60, 0.7)'
+      state.ctx.font = '12px Arial'
+      state.ctx.textAlign = 'right'
+      state.ctx.fillText(`Misses: ${state.gameState.feedback.missCount}`, state.settings.canvasWidth - 20, 50)
     }
     
     // Drag indicator
@@ -611,6 +849,7 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   const destroy = () => {
     stop()
     cleanup()
+    state.audioManager.cleanup()
   }
 
   // Return public API
