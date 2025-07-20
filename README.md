@@ -2,6 +2,8 @@
 
 A pixel-art style "Where's Waldo" game built with React, TypeScript, and HTML5 Canvas. Help players find Andy in crowded scenes inspired by the viral meme!
 
+**🌐 [Play the game live on GitHub Pages!](https://himanshu4141.github.io/finding-andy/)**
+
 ## 🚀 Features
 
 - **Cross-Platform**: Built with React and Capacitor for web, iOS, and Android
@@ -161,14 +163,44 @@ Mobile app settings in `capacitor.config.ts`:
 
 ## 🚀 Deployment
 
-### Web Deployment
+### GitHub Pages (Live Demo)
+
+The app is automatically deployed to GitHub Pages at: **https://himanshu4141.github.io/finding-andy/**
+
+#### Initial Setup (One-time)
+To enable GitHub Pages deployment, the repository owner needs to:
+1. Go to repository **Settings** → **Pages**
+2. Under "Source", select "**GitHub Actions**"
+3. The deployment workflow will handle the rest automatically
+
+#### Automatic Deployment
+- **Trigger**: Pushes to the `main` branch automatically trigger deployment
+- **Workflow**: GitHub Actions builds and deploys the app
+- **Build Process**: 
+  1. Install dependencies with `npm ci`
+  2. Run ESLint for code quality
+  3. Build production bundle with `npm run build`
+  4. Deploy `dist` folder to GitHub Pages
+
+#### Manual Deployment
+To trigger a manual deployment:
+1. Go to **Actions** tab in the GitHub repository
+2. Select "Deploy to GitHub Pages" workflow  
+3. Click "Run workflow" → "Run workflow"
+
+### Local Development Deployment
 
 1. Build the project:
 ```bash
 npm run build
 ```
 
-2. Deploy the `dist` folder to your hosting provider
+2. Preview locally:
+```bash
+npm run preview
+```
+
+3. Deploy the `dist` folder to your hosting provider
 
 ### Mobile Deployment
 
