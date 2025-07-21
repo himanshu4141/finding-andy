@@ -57,6 +57,11 @@ function createAssetManager(): AssetManager {
     // Disable smoothing for pixel art
     ctx.imageSmoothingEnabled = false
     
+    // For very large arenas, use tiled approach for better performance
+    if (options.width > 3000 || options.height > 3000) {
+      return createTiledCrowdBackground(canvas, ctx, options)
+    }
+    
     // Fill background
     ctx.fillStyle = options.colors.background
     ctx.fillRect(0, 0, options.width, options.height)
@@ -64,6 +69,31 @@ function createAssetManager(): AssetManager {
     // Create concert venue atmosphere
     drawConcertVenue(ctx, options)
     
+    return canvas
+  }
+
+  const createTiledCrowdBackground = (
+    canvas: HTMLCanvasElement, 
+    ctx: CanvasRenderingContext2D, 
+    options: CrowdBackgroundOptions
+  ): HTMLCanvasElement => {
+    // Create base tile
+    const tileSize = 400
+    const baseTile = createTileableCrowdPattern(tileSize, options)
+    
+    // Tile the pattern across the entire canvas
+    for (let x = 0; x < options.width; x += tileSize) {
+      for (let y = 0; y < options.height; y += tileSize) {
+        ctx.drawImage(baseTile, x, y)
+      }
+    }
+    
+    // Add stage area overlay
+    const stageHeight = options.height * 0.15
+    ctx.fillStyle = options.colors.stage
+    ctx.fillRect(0, 0, options.width, stageHeight)
+    
+    console.log('Created tiled crowd background for performance')
     return canvas
   }
 

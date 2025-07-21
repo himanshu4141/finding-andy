@@ -1,7 +1,7 @@
 import type { GameState, GameSettings, Point, Character } from '../types'
 import { createAudioManager } from './AudioManager'
 import { createCelebrationParticles, updateParticles, renderParticles } from './ParticleSystem'
-import { assetManager, COLDPLAY_COLORS } from '../assets'
+import { assetManager, COLDPLAY_COLORS, performanceOptimizer, isInViewport, optimizeCanvasForPixelArt } from '../assets'
 
 interface GameEngineState {
   canvas: HTMLCanvasElement
@@ -172,6 +172,12 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   const setupCanvas = () => {
     resizeCanvas()
     state.ctx.imageSmoothingEnabled = false
+    
+    // Apply pixel art optimizations
+    optimizeCanvasForPixelArt(state.canvas)
+    
+    // Start performance monitoring
+    performanceOptimizer.startMonitoring()
   }
 
   const setupEventListeners = () => {
@@ -589,6 +595,14 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   }
 
   const render = () => {
+    // Update performance metrics
+    if ((window as any).updatePerformanceMetrics) {
+      (window as any).updatePerformanceMetrics()
+    }
+    
+    // Apply performance optimizations
+    performanceOptimizer.optimizeDrawing(state.canvas, state.ctx)
+    
     // Calculate shake offset
     let shakeX = 0
     let shakeY = 0
@@ -643,6 +657,14 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       drawZoomLens()
       state.ctx.restore()
     }
+    
+    // Show performance metrics in debug mode
+    if (state.settings.difficulty === 'easy' && Math.random() < 0.02) {
+      const metrics = performanceOptimizer.getMetrics()
+      if (metrics.fps > 0) {
+        console.log(`Performance: ${metrics.fps}fps, ${metrics.frameTime}ms, Draw calls: ${metrics.drawCalls}`)
+      }
+    }
   }
 
   const drawArenaBackground = () => {
@@ -676,23 +698,27 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   const drawCrowd = () => {
     const camera = state.gameState.camera
     
-    // Only draw characters that are visible in the viewport (with some margin)
+    // Optimized viewport culling
     const margin = 100
-    const viewLeft = camera.x - margin
-    const viewRight = camera.x + state.settings.canvasWidth + margin
-    const viewTop = camera.y - margin
-    const viewBottom = camera.y + state.settings.canvasHeight + margin
+    let visibleCharacters = 0
     
     for (const character of state.gameState.arena.characters) {
-      // Skip characters that are not in view
-      if (character.x + character.width < viewLeft || 
-          character.x > viewRight || 
-          character.y + character.height < viewTop || 
-          character.y > viewBottom) {
+      // Use optimized viewport culling function
+      if (!isInViewport(
+        character.x, character.y, character.width, character.height,
+        camera.x, camera.y, state.settings.canvasWidth, state.settings.canvasHeight,
+        margin
+      )) {
         continue
       }
       
       drawCharacter(character)
+      visibleCharacters++
+    }
+    
+    // Log performance info periodically
+    if (Math.random() < 0.01) { // 1% chance per frame
+      console.log(`Rendering ${visibleCharacters}/${state.gameState.arena.characters.length} characters`)
     }
   }
 
@@ -925,6 +951,7 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     stop()
     cleanup()
     state.audioManager.cleanup()
+    performanceOptimizer.stopMonitoring()
   }
 
   // Return public API
