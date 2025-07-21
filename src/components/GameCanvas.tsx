@@ -25,6 +25,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       gameEngineRef.current = new GameEngine(canvasRef.current, settings)
       setIsLoading(false)
       setError(null)
+      
+      // Ensure proper canvas sizing after initialization
+      // Use setTimeout to ensure DOM has fully rendered
+      setTimeout(() => {
+        if (gameEngineRef.current) {
+          // Trigger a manual resize to ensure proper initial sizing
+          window.dispatchEvent(new Event('resize'))
+        }
+      }, 100)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initialize game')
       setIsLoading(false)
@@ -102,8 +111,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         className="game-canvas"
         style={{ 
           display: isLoading ? 'none' : 'block',
-          maxWidth: '100%',
-          maxHeight: '100%',
           imageRendering: 'pixelated'
         }}
       />
