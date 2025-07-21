@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/finding-andy/',
+  base: process.env.NETLIFY ? '/' : '/finding-andy/',
 })

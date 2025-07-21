@@ -87,6 +87,21 @@ npm run dev
 - `npm run preview` - Preview production build locally
 - `npm run lint` - Run ESLint for code quality
 
+### Preview Deployments
+
+Every pull request automatically gets a preview deployment to make reviewing changes easier:
+
+- **Automatic Deployment**: When you open a PR, GitHub Actions builds and deploys your changes to Netlify
+- **Unique Preview URL**: Each PR gets its own preview URL (e.g., `https://pr-123--finding-andy.netlify.app/`)
+- **Status Updates**: The deployment status is posted directly to the PR with a link to the preview
+- **Auto-Update**: New commits to the PR automatically update the preview deployment
+- **Auto-Cleanup**: Preview deployments are automatically cleaned up when PRs are closed/merged
+
+**For Repository Maintainers:**
+To enable preview deployments, add these secrets to the GitHub repository settings:
+- `NETLIFY_AUTH_TOKEN` - Your Netlify personal access token
+- `NETLIFY_SITE_ID` - The site ID from your Netlify site settings
+
 ### Mobile Development
 
 #### Setup Capacitor (first time only):
