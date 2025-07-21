@@ -1,6 +1,7 @@
 import type { GameState, GameSettings, Point, Character } from '../types'
 import { createAudioManager } from './AudioManager'
 import { createCelebrationParticles, updateParticles, renderParticles } from './ParticleSystem'
+import { assetManager, COLDPLAY_COLORS } from '../assets'
 
 interface GameEngineState {
   canvas: HTMLCanvasElement
@@ -10,6 +11,7 @@ interface GameEngineState {
   settings: GameSettings
   lastTime: number
   audioManager: ReturnType<typeof createAudioManager>
+  crowdBackground: HTMLCanvasElement | null
 }
 
 // Constants for the enhanced game
@@ -36,6 +38,7 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     settings,
     lastTime: 0,
     audioManager: createAudioManager(),
+    crowdBackground: null,
     gameState: {
       isRunning: false,
       score: 0,
@@ -90,6 +93,25 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   }
 
   // Helper functions
+  const initializeCrowdBackground = async () => {
+    try {
+      // Create concert crowd background
+      const crowdBg = assetManager.createCrowdBackground({
+        width: ARENA_WIDTH,
+        height: ARENA_HEIGHT,
+        theme: 'concert',
+        density: 0.7,
+        colors: COLDPLAY_COLORS
+      })
+      
+      state.crowdBackground = crowdBg
+      console.log('Crowd background initialized:', ARENA_WIDTH, 'x', ARENA_HEIGHT)
+    } catch (error) {
+      console.warn('Failed to initialize crowd background:', error)
+      state.crowdBackground = null
+    }
+  }
+
   const generateCrowd = (): Character[] => {
     const characters: Character[] = []
     const charWidth = 40
@@ -456,6 +478,11 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     state.gameState.feedback.lastMissPosition = null
     state.gameState.feedback.missCount = 0
     
+    // Initialize crowd background if not already done
+    if (!state.crowdBackground) {
+      initializeCrowdBackground()
+    }
+    
     // Generate new crowd
     state.gameState.arena.characters = generateCrowd()
     
@@ -619,27 +646,30 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   }
 
   const drawArenaBackground = () => {
-    // Draw a subtle grid pattern for the arena
-    state.ctx.fillStyle = '#34495e'
-    state.ctx.fillRect(0, 0, state.gameState.arena.width, state.gameState.arena.height)
-    
-    // Draw grid lines
-    state.ctx.strokeStyle = '#3a526b'
-    state.ctx.lineWidth = 1
-    
-    const gridSize = 100
-    for (let x = 0; x <= state.gameState.arena.width; x += gridSize) {
-      state.ctx.beginPath()
-      state.ctx.moveTo(x, 0)
-      state.ctx.lineTo(x, state.gameState.arena.height)
-      state.ctx.stroke()
-    }
-    
-    for (let y = 0; y <= state.gameState.arena.height; y += gridSize) {
-      state.ctx.beginPath()
-      state.ctx.moveTo(0, y)
-      state.ctx.lineTo(state.gameState.arena.width, y)
-      state.ctx.stroke()
+    if (state.crowdBackground) {
+      // Draw the procedural crowd background
+      state.ctx.drawImage(state.crowdBackground, 0, 0)
+    } else {
+      // Fallback: Concert-themed basic background
+      state.ctx.fillStyle = COLDPLAY_COLORS.background
+      state.ctx.fillRect(0, 0, state.gameState.arena.width, state.gameState.arena.height)
+      
+      // Add some basic concert lighting effects as fallback
+      state.ctx.globalAlpha = 0.1
+      
+      // Stage area
+      state.ctx.fillStyle = COLDPLAY_COLORS.stage
+      state.ctx.fillRect(0, 0, state.gameState.arena.width, state.gameState.arena.height * 0.15)
+      
+      // Simple crowd suggestion with color bands
+      const bandHeight = (state.gameState.arena.height * 0.85) / COLDPLAY_COLORS.crowd.length
+      COLDPLAY_COLORS.crowd.forEach((color, index) => {
+        state.ctx.fillStyle = color
+        const y = state.gameState.arena.height * 0.15 + (index * bandHeight)
+        state.ctx.fillRect(0, y, state.gameState.arena.width, bandHeight)
+      })
+      
+      state.ctx.globalAlpha = 1.0
     }
   }
 
@@ -669,45 +699,80 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   const drawCharacter = (character: Character) => {
     const { x, y, width, height, isAndy, isCompanion } = character
     
-    // Body color
-    let bodyColor = '#4ecdc4' // Default crowd color
+    // Body color with better contrast for concert atmosphere
+    let bodyColor = '#ffffff' // White for better visibility in crowd
+    let outlineColor = '#000000' // Black outline for definition
+    
     if (isAndy) {
-      bodyColor = '#ff6b6b' // Red for Andy
+      bodyColor = '#ff4757' // Bright red for Andy
+      outlineColor = '#2f1b14'
     } else if (isCompanion) {
-      bodyColor = '#45b7d1' // Blue for companion
+      bodyColor = '#3742fa' // Bright blue for companion  
+      outlineColor = '#1e3a8a'
+    } else {
+      // Randomize crowd colors based on position for consistency
+      const seed = (character.x * 31 + character.y * 17) % 100
+      if (seed < 20) bodyColor = '#feca57' // Yellow shirts
+      else if (seed < 40) bodyColor = '#ff6b6b' // Red shirts
+      else if (seed < 60) bodyColor = '#4ecdc4' // Cyan shirts
+      else if (seed < 80) bodyColor = '#45b7d1' // Blue shirts
+      else bodyColor = '#ffffff' // White shirts
     }
     
+    // Draw character outline first for better visibility
+    state.ctx.fillStyle = outlineColor
+    state.ctx.fillRect(x + 4, y + 9, width - 8, height - 18)
+    
+    // Draw character body
     state.ctx.fillStyle = bodyColor
     state.ctx.fillRect(x + 5, y + 10, width - 10, height - 20)
     
-    // Head
+    // Head with skin tone
     state.ctx.fillStyle = '#fdbcb4'
-    state.ctx.fillRect(x + 10, y + 5, width - 20, 15)
+    state.ctx.fillRect(x + 9, y + 4, width - 18, 16)
+    
+    // Head outline
+    state.ctx.fillStyle = outlineColor
+    state.ctx.fillRect(x + 8, y + 3, width - 16, 1) // Top
+    state.ctx.fillRect(x + 8, y + 19, width - 16, 1) // Bottom
+    state.ctx.fillRect(x + 8, y + 4, 1, 15) // Left
+    state.ctx.fillRect(x + width - 9, y + 4, 1, 15) // Right
     
     // Eyes
     state.ctx.fillStyle = '#000000'
-    state.ctx.fillRect(x + 12, y + 8, 3, 3)
-    state.ctx.fillRect(x + width - 15, y + 8, 3, 3)
+    state.ctx.fillRect(x + 12, y + 8, 2, 2)
+    state.ctx.fillRect(x + width - 14, y + 8, 2, 2)
     
-    // Character labels (only visible when close enough or in zoom lens)
-    if (isAndy) {
+    // Character labels for special characters only when they haven't been found
+    if (isAndy && !state.gameState.andyFound) {
       state.ctx.fillStyle = '#ffffff'
-      state.ctx.font = '10px Arial'
+      state.ctx.font = 'bold 8px monospace'
       state.ctx.textAlign = 'center'
-      state.ctx.fillText('A', x + width / 2, y + height + 10)
-    } else if (isCompanion) {
+      state.ctx.fillText('A', x + width / 2, y + height + 8)
+    } else if (isCompanion && !state.gameState.companionFound) {
       state.ctx.fillStyle = '#ffffff'
-      state.ctx.font = '10px Arial'
+      state.ctx.font = 'bold 8px monospace'
       state.ctx.textAlign = 'center'
-      state.ctx.fillText('C', x + width / 2, y + height + 10)
+      state.ctx.fillText('C', x + width / 2, y + height + 8)
     }
     
-    // Add found indicator
+    // Add found indicator with glowing effect
     if ((isAndy && state.gameState.andyFound) || (isCompanion && state.gameState.companionFound)) {
-      // Draw checkmark or glow effect
+      // Glowing green border effect
       state.ctx.strokeStyle = '#2ecc71'
-      state.ctx.lineWidth = 3
-      state.ctx.strokeRect(x - 2, y - 2, width + 4, height + 4)
+      state.ctx.lineWidth = 2
+      state.ctx.strokeRect(x - 3, y - 3, width + 6, height + 6)
+      
+      // Inner glow
+      state.ctx.strokeStyle = '#a8e6cf'
+      state.ctx.lineWidth = 1
+      state.ctx.strokeRect(x - 1, y - 1, width + 2, height + 2)
+      
+      // Checkmark above character
+      state.ctx.fillStyle = '#2ecc71'
+      state.ctx.font = 'bold 12px monospace'
+      state.ctx.textAlign = 'center'
+      state.ctx.fillText('✓', x + width / 2, y - 5)
     }
   }
 
@@ -852,6 +917,9 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   // Initialize
   setupCanvas()
   const cleanup = setupEventListeners()
+  
+  // Preload assets for better performance
+  assetManager.preloadAssets().catch(console.warn)
 
   const destroy = () => {
     stop()
