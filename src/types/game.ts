@@ -22,6 +22,13 @@ export interface Character {
   isAndy: boolean
   isCompanion: boolean
   spriteIndex: number
+  isDiscovered: boolean
+  hideFaceAnimation: {
+    isActive: boolean
+    startTime: number
+    duration: number
+    progress: number
+  }
 }
 
 export interface GameLevel {

@@ -155,7 +155,14 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
           height: charHeight,
           isAndy: characterCount === andyIndex,
           isCompanion: characterCount === adjustedCompanionIndex,
-          spriteIndex: characterCount % 5
+          spriteIndex: characterCount % 5,
+          isDiscovered: false,
+          hideFaceAnimation: {
+            isActive: false,
+            startTime: 0,
+            duration: 800, // 800ms hide face animation
+            progress: 0
+          }
         })
         
         characterCount++
@@ -395,6 +402,10 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
           state.gameState.andyFound = true
           state.gameState.score += 100
           foundCharacter = true
+          character.isDiscovered = true
+          character.hideFaceAnimation.isActive = true
+          character.hideFaceAnimation.startTime = performance.now()
+          character.hideFaceAnimation.progress = 0
           state.audioManager.playSound('victory', 0.8)
           console.log('Andy found!', { worldX, worldY, character })
           break
@@ -402,9 +413,20 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
           state.gameState.companionFound = true
           state.gameState.score += 100
           foundCharacter = true
+          character.isDiscovered = true
+          character.hideFaceAnimation.isActive = true
+          character.hideFaceAnimation.startTime = performance.now()
+          character.hideFaceAnimation.progress = 0
           state.audioManager.playSound('victory', 0.8)
           console.log('Companion found!', { worldX, worldY, character })
           break
+        } else if (!character.isAndy && !character.isCompanion && !character.isDiscovered) {
+          // Trigger hide face animation for any crowd character clicked
+          character.isDiscovered = true
+          character.hideFaceAnimation.isActive = true
+          character.hideFaceAnimation.startTime = performance.now()
+          character.hideFaceAnimation.progress = 0
+          foundCharacter = true // Don't trigger miss feedback for crowd characters
         }
       }
     }
@@ -588,6 +610,18 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       }
     }
     
+    // Update character animations
+    for (const character of state.gameState.arena.characters) {
+      if (character.hideFaceAnimation.isActive) {
+        const elapsed = currentTime - character.hideFaceAnimation.startTime
+        character.hideFaceAnimation.progress = Math.min(elapsed / character.hideFaceAnimation.duration, 1.0)
+        
+        if (character.hideFaceAnimation.progress >= 1.0) {
+          character.hideFaceAnimation.isActive = false
+        }
+      }
+    }
+
     // Smooth camera interpolation
     const camera = state.gameState.camera
     camera.x += (camera.targetX - camera.x) * CAMERA_LERP_SPEED
@@ -724,82 +758,134 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   }
 
   const drawCharacter = (character: Character) => {
-    const { x, y, width, height, isAndy, isCompanion } = character
+    const { x, y, width, height, isAndy, isCompanion, spriteIndex, isDiscovered, hideFaceAnimation } = character
     
-    // Body color with better contrast for concert atmosphere
-    let bodyColor = '#ffffff' // White for better visibility in crowd
-    let outlineColor = '#000000' // Black outline for definition
+    // Define pixel art character variations based on reference images
+    const characterVariations = [
+      // Andy-style (red shirt, dark hair)
+      { hairColor: '#2f1b14', skinColor: '#fdbcb4', shirtColor: '#ff4757', pantsColor: '#2f1b14' },
+      // Kristen-style (blonde hair, dark shirt)  
+      { hairColor: '#feca57', skinColor: '#fdbcb4', shirtColor: '#2f3542', pantsColor: '#2f1b14' },
+      // Crowd variations maintaining consistent pixel art style
+      { hairColor: '#8b4513', skinColor: '#fdbcb4', shirtColor: '#4ecdc4', pantsColor: '#2f3542' },
+      { hairColor: '#654321', skinColor: '#fdbcb4', shirtColor: '#ff6b6b', pantsColor: '#2f1b14' },
+      { hairColor: '#2f1b14', skinColor: '#fdbcb4', shirtColor: '#45b7d1', pantsColor: '#2f3542' },
+    ]
     
+    // Select character colors based on type and sprite index
+    let colors = characterVariations[spriteIndex % characterVariations.length]
     if (isAndy) {
-      bodyColor = '#ff4757' // Bright red for Andy
-      outlineColor = '#2f1b14'
+      colors = characterVariations[0] // Andy gets the red shirt variation
     } else if (isCompanion) {
-      bodyColor = '#3742fa' // Bright blue for companion  
-      outlineColor = '#1e3a8a'
-    } else {
-      // Randomize crowd colors based on position for consistency
-      const seed = (character.x * 31 + character.y * 17) % 100
-      if (seed < 20) bodyColor = '#feca57' // Yellow shirts
-      else if (seed < 40) bodyColor = '#ff6b6b' // Red shirts
-      else if (seed < 60) bodyColor = '#4ecdc4' // Cyan shirts
-      else if (seed < 80) bodyColor = '#45b7d1' // Blue shirts
-      else bodyColor = '#ffffff' // White shirts
+      colors = characterVariations[1] // Kristen gets the blonde/dark variation
     }
     
-    // Draw character outline first for better visibility
-    state.ctx.fillStyle = outlineColor
-    state.ctx.fillRect(x + 4, y + 9, width - 8, height - 18)
+    // Calculate animation offset for hide face animation
+    const animationOffset = hideFaceAnimation.isActive 
+      ? Math.sin(hideFaceAnimation.progress * Math.PI) * 4 
+      : 0
     
-    // Draw character body
-    state.ctx.fillStyle = bodyColor
-    state.ctx.fillRect(x + 5, y + 10, width - 10, height - 20)
+    // Draw character outline for better pixel art definition
+    state.ctx.fillStyle = '#000000'
+    state.ctx.fillRect(x, y, width, height)
     
-    // Head with skin tone
-    state.ctx.fillStyle = '#fdbcb4'
-    state.ctx.fillRect(x + 9, y + 4, width - 18, 16)
+    // Pants (lower body)
+    state.ctx.fillStyle = colors.pantsColor
+    state.ctx.fillRect(x + 4, y + height - 18, width - 8, 14)
+    
+    // Shirt (upper body)  
+    state.ctx.fillStyle = colors.shirtColor
+    state.ctx.fillRect(x + 3, y + height - 35, width - 6, 20)
+    
+    // Arms
+    state.ctx.fillStyle = colors.shirtColor
+    state.ctx.fillRect(x + 1, y + height - 32, 4, 12) // Left arm
+    state.ctx.fillRect(x + width - 5, y + height - 32, 4, 12) // Right arm
+    
+    // Hands
+    state.ctx.fillStyle = colors.skinColor
+    state.ctx.fillRect(x + 1, y + height - 22, 4, 4) // Left hand
+    state.ctx.fillRect(x + width - 5, y + height - 22, 4, 4) // Right hand
     
     // Head outline
-    state.ctx.fillStyle = outlineColor
-    state.ctx.fillRect(x + 8, y + 3, width - 16, 1) // Top
-    state.ctx.fillRect(x + 8, y + 19, width - 16, 1) // Bottom
-    state.ctx.fillRect(x + 8, y + 4, 1, 15) // Left
-    state.ctx.fillRect(x + width - 9, y + 4, 1, 15) // Right
-    
-    // Eyes
     state.ctx.fillStyle = '#000000'
-    state.ctx.fillRect(x + 12, y + 8, 2, 2)
-    state.ctx.fillRect(x + width - 14, y + 8, 2, 2)
+    state.ctx.fillRect(x + 6, y + 4, width - 12, 18)
     
-    // Character labels for special characters only when they haven't been found
-    if (isAndy && !state.gameState.andyFound) {
-      state.ctx.fillStyle = '#ffffff'
-      state.ctx.font = 'bold 8px monospace'
-      state.ctx.textAlign = 'center'
-      state.ctx.fillText('A', x + width / 2, y + height + 8)
-    } else if (isCompanion && !state.gameState.companionFound) {
-      state.ctx.fillStyle = '#ffffff'
-      state.ctx.font = 'bold 8px monospace'
-      state.ctx.textAlign = 'center'
-      state.ctx.fillText('C', x + width / 2, y + height + 8)
+    // Head (skin)
+    state.ctx.fillStyle = colors.skinColor
+    state.ctx.fillRect(x + 7, y + 5, width - 14, 16)
+    
+    // Hair
+    state.ctx.fillStyle = colors.hairColor
+    state.ctx.fillRect(x + 7, y + 5, width - 14, 8) // Hair area
+    
+    // Hide face animation - characters cover their face when discovered
+    if (hideFaceAnimation.isActive && hideFaceAnimation.progress > 0.2) {
+      // Hands covering face animation
+      const handOffset = Math.floor(hideFaceAnimation.progress * 6)
+      
+      // Left hand moving to cover face
+      state.ctx.fillStyle = colors.skinColor
+      state.ctx.fillRect(x + 7 + handOffset, y + 12 + Math.floor(animationOffset), 4, 6)
+      
+      // Right hand moving to cover face  
+      state.ctx.fillRect(x + width - 11 - handOffset, y + 12 + Math.floor(animationOffset), 4, 6)
+      
+      // Face partially hidden
+      if (hideFaceAnimation.progress > 0.5) {
+        state.ctx.fillStyle = colors.skinColor
+        state.ctx.fillRect(x + 9, y + 12, width - 18, 6)
+      }
+    } else {
+      // Normal face - eyes and mouth
+      if (!hideFaceAnimation.isActive || hideFaceAnimation.progress <= 0.2) {
+        // Eyes
+        state.ctx.fillStyle = '#000000'
+        state.ctx.fillRect(x + 10, y + 12, 2, 2) // Left eye
+        state.ctx.fillRect(x + width - 12, y + 12, 2, 2) // Right eye
+        
+        // Simple mouth
+        state.ctx.fillRect(x + width/2 - 1, y + 16, 2, 1)
+      }
     }
     
-    // Add found indicator with glowing effect
-    if ((isAndy && state.gameState.andyFound) || (isCompanion && state.gameState.companionFound)) {
-      // Glowing green border effect
-      state.ctx.strokeStyle = '#2ecc71'
-      state.ctx.lineWidth = 2
-      state.ctx.strokeRect(x - 3, y - 3, width + 6, height + 6)
-      
-      // Inner glow
-      state.ctx.strokeStyle = '#a8e6cf'
-      state.ctx.lineWidth = 1
-      state.ctx.strokeRect(x - 1, y - 1, width + 2, height + 2)
-      
-      // Checkmark above character
-      state.ctx.fillStyle = '#2ecc71'
-      state.ctx.font = 'bold 12px monospace'
+    // Special indicators for Andy and Kristen when not found
+    if (isAndy && !state.gameState.andyFound && !hideFaceAnimation.isActive) {
+      state.ctx.fillStyle = '#ffffff'
+      state.ctx.font = 'bold 6px monospace'
       state.ctx.textAlign = 'center'
-      state.ctx.fillText('✓', x + width / 2, y - 5)
+      state.ctx.fillText('A', x + width / 2, y + height + 6)
+    } else if (isCompanion && !state.gameState.companionFound && !hideFaceAnimation.isActive) {
+      state.ctx.fillStyle = '#ffffff'
+      state.ctx.font = 'bold 6px monospace'
+      state.ctx.textAlign = 'center'
+      state.ctx.fillText('K', x + width / 2, y + height + 6)
+    }
+    
+    // Found indicator with enhanced pixel art glow
+    if ((isAndy && state.gameState.andyFound) || (isCompanion && state.gameState.companionFound)) {
+      // Pixel art style glow effect
+      state.ctx.fillStyle = '#2ecc71'
+      // Draw glow as pixel blocks around character
+      for (let gx = x - 2; gx <= x + width + 1; gx += 2) {
+        for (let gy = y - 2; gy <= y + height + 1; gy += 2) {
+          if (gx < x || gx >= x + width || gy < y || gy >= y + height) {
+            state.ctx.fillRect(gx, gy, 1, 1)
+          }
+        }
+      }
+      
+      // Checkmark in pixel art style
+      state.ctx.fillStyle = '#2ecc71'
+      state.ctx.fillRect(x + width/2 - 2, y - 6, 2, 2)
+      state.ctx.fillRect(x + width/2, y - 4, 2, 2)
+      state.ctx.fillRect(x + width/2 + 2, y - 8, 2, 2)
+    }
+    
+    // Animation feedback for discovered crowd characters
+    if (isDiscovered && !isAndy && !isCompanion && hideFaceAnimation.progress > 0.8) {
+      state.ctx.fillStyle = '#f39c12'
+      state.ctx.fillRect(x + width/2 - 1, y - 4, 2, 2) // Small indicator dot
     }
   }
 
