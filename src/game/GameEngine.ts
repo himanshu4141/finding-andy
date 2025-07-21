@@ -336,8 +336,19 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     const container = state.canvas.parentElement
     if (!container) return
 
-    const containerWidth = container.clientWidth
-    const containerHeight = container.clientHeight
+    let containerWidth = container.clientWidth
+    let containerHeight = container.clientHeight
+    
+    // Fallback for initial load when container dimensions might be 0
+    if (containerWidth === 0 || containerHeight === 0) {
+      const rect = container.getBoundingClientRect()
+      containerWidth = rect.width || Math.min(window.innerWidth * 0.9, 800)
+      containerHeight = rect.height || Math.min(window.innerHeight * 0.6, 600)
+    }
+    
+    // Ensure minimum dimensions for usability
+    containerWidth = Math.max(containerWidth, 320)
+    containerHeight = Math.max(containerHeight, 240)
     
     const aspectRatio = state.settings.canvasWidth / state.settings.canvasHeight
     let canvasWidth: number
