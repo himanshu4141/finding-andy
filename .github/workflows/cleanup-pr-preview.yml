@@ -1,0 +1,38 @@
+name: Cleanup PR Preview
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  cleanup-preview:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Comment PR about preview cleanup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.number;
+            const previewUrl = `https://${{ github.repository_owner }}.github.io/finding-andy/pr-${prNumber}/`;
+            
+            const body = `🧹 PR Preview Cleanup
+            
+            The preview deployment at ${previewUrl} will be cleaned up automatically.
+            
+            Note: The URL may remain accessible for a short time due to GitHub Pages caching.`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: body
+            });
+      
+      # Note: GitHub Pages doesn't support automatic cleanup of subdirectories
+      # The preview URLs will become 404 once the main branch deployment overwrites them
+      # This is a limitation of GitHub Pages compared to dedicated preview services

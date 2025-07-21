@@ -87,21 +87,6 @@ npm run dev
 - `npm run preview` - Preview production build locally
 - `npm run lint` - Run ESLint for code quality
 
-### Preview Deployments
-
-Every pull request automatically gets a preview deployment to make reviewing changes easier:
-
-- **Automatic Deployment**: When you open a PR, GitHub Actions builds and deploys your changes to Netlify
-- **Unique Preview URL**: Each PR gets its own preview URL (e.g., `https://pr-123--finding-andy.netlify.app/`)
-- **Status Updates**: The deployment status is posted directly to the PR with a link to the preview
-- **Auto-Update**: New commits to the PR automatically update the preview deployment
-- **Auto-Cleanup**: Preview deployments are automatically cleaned up when PRs are closed/merged
-
-**For Repository Maintainers:**
-To enable preview deployments, add these secrets to the GitHub repository settings:
-- `NETLIFY_AUTH_TOKEN` - Your Netlify personal access token
-- `NETLIFY_SITE_ID` - The site ID from your Netlify site settings
-
 ### Mobile Development
 
 #### Setup Capacitor (first time only):
@@ -181,6 +166,26 @@ Mobile app settings in `capacitor.config.ts`:
 ### GitHub Pages (Live Demo)
 
 The app is automatically deployed to GitHub Pages at: **https://himanshu4141.github.io/finding-andy/**
+
+#### Pull Request Previews
+
+Every pull request automatically gets a unique preview deployment for easy testing and review:
+
+- **Preview URL Format**: `https://himanshu4141.github.io/finding-andy/pr-{number}/`
+- **Automatic Deployment**: Triggered when PRs are opened, updated, or synchronized
+- **Live Updates**: Preview updates automatically with each new commit
+- **Review Integration**: Preview URLs are posted directly to PR comments
+- **Automatic Cleanup**: Preview deployments are cleaned up when PRs are closed
+
+**Example**: PR #42 would be available at `https://himanshu4141.github.io/finding-andy/pr-42/`
+
+This allows reviewers to:
+- Test functionality changes immediately
+- Catch visual regressions before merging
+- Review UI changes without setting up a local environment
+- Share links with stakeholders for feedback
+
+#### Production Deployment
 
 #### Initial Setup (One-time)
 To enable GitHub Pages deployment, the repository owner needs to:
