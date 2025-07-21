@@ -103,19 +103,24 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     const startX = (ARENA_WIDTH - (cols * (charWidth + padding))) / 2
     const startY = (ARENA_HEIGHT - (rows * (charHeight + padding))) / 2
     
-    let characterCount = 0
-    const andyIndex = Math.floor(Math.random() * (cols * rows))
-    const companionIndex = Math.floor(Math.random() * (cols * rows))
+    // Ensure we don't try to place more characters than we can create
+    const actualCrowdSize = Math.min(CROWD_DENSITY, cols * rows)
+    
+    // Choose random indices within the range of characters we'll actually create
+    const andyIndex = Math.floor(Math.random() * actualCrowdSize)
+    const companionIndex = Math.floor(Math.random() * actualCrowdSize)
     
     // Ensure Andy and companion are different characters
     let adjustedCompanionIndex = companionIndex
     if (companionIndex === andyIndex) {
-      adjustedCompanionIndex = (companionIndex + 1) % (cols * rows)
+      adjustedCompanionIndex = (companionIndex + 1) % actualCrowdSize
     }
+    
+    let characterCount = 0
     
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
-        if (characterCount >= CROWD_DENSITY) break
+        if (characterCount >= actualCrowdSize) break
         
         const x = startX + col * (charWidth + padding)
         const y = startY + row * (charHeight + padding)
@@ -133,8 +138,10 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
         
         characterCount++
       }
-      if (characterCount >= CROWD_DENSITY) break
+      if (characterCount >= actualCrowdSize) break
     }
+    
+    console.log(`Generated ${characters.length} characters. Andy at index ${andyIndex}, Companion at index ${adjustedCompanionIndex}`)
     
     return characters
   }
