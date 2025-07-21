@@ -72,8 +72,9 @@ function createPerformanceOptimizer(): PerformanceOptimizer {
     const frameTime = avgFps > 0 ? 1000 / avgFps : 0
     
     // Estimate memory usage (rough approximation)
-    const memoryUsage = (performance as any).memory 
-      ? (performance as any).memory.usedJSHeapSize / 1024 / 1024 
+    // Chrome-specific API, safely access with type guard
+    const memoryUsage = 'memory' in performance && performance.memory
+      ? (performance.memory as { usedJSHeapSize: number }).usedJSHeapSize / 1024 / 1024 
       : 0
 
     return {
@@ -110,7 +111,7 @@ function createPerformanceOptimizer(): PerformanceOptimizer {
   }
 
   // Make updateMetrics available globally for GameEngine to call
-  ;(window as any).updatePerformanceMetrics = updateMetrics
+  ;(window as unknown as { updatePerformanceMetrics: () => void }).updatePerformanceMetrics = updateMetrics
 
   return {
     startMonitoring,

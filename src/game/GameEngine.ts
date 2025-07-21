@@ -596,8 +596,9 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
 
   const render = () => {
     // Update performance metrics
-    if ((window as any).updatePerformanceMetrics) {
-      (window as any).updatePerformanceMetrics()
+    const windowWithMetrics = window as unknown as { updatePerformanceMetrics?: () => void }
+    if (windowWithMetrics.updatePerformanceMetrics) {
+      windowWithMetrics.updatePerformanceMetrics()
     }
     
     // Apply performance optimizations
