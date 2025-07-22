@@ -167,6 +167,26 @@ Mobile app settings in `capacitor.config.ts`:
 
 The app is automatically deployed to GitHub Pages at: **https://himanshu4141.github.io/finding-andy/**
 
+#### Pull Request Previews
+
+Every pull request automatically gets a unique preview deployment for easy testing and review:
+
+- **Preview URL Format**: `https://himanshu4141.github.io/finding-andy/pr-{number}/`
+- **Automatic Deployment**: Triggered when PRs are opened, updated, or synchronized
+- **Live Updates**: Preview updates automatically with each new commit
+- **Review Integration**: Preview URLs are posted directly to PR comments
+- **Automatic Cleanup**: Preview deployments are cleaned up when PRs are closed
+
+**Example**: PR #42 would be available at `https://himanshu4141.github.io/finding-andy/pr-42/`
+
+This allows reviewers to:
+- Test functionality changes immediately
+- Catch visual regressions before merging
+- Review UI changes without setting up a local environment
+- Share links with stakeholders for feedback
+
+#### Production Deployment
+
 #### Initial Setup (One-time)
 To enable GitHub Pages deployment, the repository owner needs to:
 1. Go to repository **Settings** → **Pages**
