@@ -384,10 +384,6 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     state.settings.canvasWidth = canvasWidth
     state.settings.canvasHeight = canvasHeight
     
-    console.log(`Canvas internal size: ${state.canvas.width}x${state.canvas.height}`)
-    console.log(`Canvas display size: ${canvasWidth}x${canvasHeight}`)
-    console.log(`Settings size: ${state.settings.canvasWidth}x${state.settings.canvasHeight}`)
-    
     if (state.gameState.isRunning) {
       render()
     }
@@ -594,12 +590,11 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     // Generate new crowd
     state.gameState.arena.characters = generateCrowd()
     
-    // Reset camera to center
-    state.gameState.camera.x = (ARENA_WIDTH - state.settings.canvasWidth) / 2
-    state.gameState.camera.y = (ARENA_HEIGHT - state.settings.canvasHeight) / 2
-    state.gameState.camera.targetX = state.gameState.camera.x
-    state.gameState.camera.targetY = state.gameState.camera.y
-    
+    // Reset camera to show top-left where characters are positioned
+    state.gameState.camera.x = 0
+    state.gameState.camera.y = 0
+    state.gameState.camera.targetX = 0
+    state.gameState.camera.targetY = 0
     gameLoop(0)
   }
 
@@ -645,11 +640,11 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     // Generate new crowd with smaller characters
     state.gameState.arena.characters = generateCrowd()
     
-    // Reset camera to center for new level
-    state.gameState.camera.x = (ARENA_WIDTH - state.settings.canvasWidth) / 2
-    state.gameState.camera.y = (ARENA_HEIGHT - state.settings.canvasHeight) / 2
-    state.gameState.camera.targetX = state.gameState.camera.x
-    state.gameState.camera.targetY = state.gameState.camera.y
+    // Reset camera to show top-left for new level
+    state.gameState.camera.x = 0
+    state.gameState.camera.y = 0
+    state.gameState.camera.targetX = 0
+    state.gameState.camera.targetY = 0
     
     console.log(`Advanced to level ${state.gameState.level}`)
     
@@ -822,10 +817,8 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     if (state.crowdBackground) {
       // Draw the procedural crowd background
       state.ctx.drawImage(state.crowdBackground, 0, 0)
-      console.log('Drew crowd background')
     } else {
       // Fallback: Concert-themed basic background
-      console.log('Drawing fallback background')
       state.ctx.fillStyle = COLDPLAY_COLORS.background
       state.ctx.fillRect(0, 0, state.gameState.arena.width, state.gameState.arena.height)
       
@@ -877,11 +870,6 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
 
   const drawCharacter = (character: Character) => {
     const { x, y, width, height, isAndy, isCompanion, spriteIndex, hideFaceAnimation, isCelebrating, celebrationStartTime } = character
-    
-    // Debug: log the first few character draws
-    if (Math.random() < 0.1) {
-      console.log(`Drawing character at (${x}, ${y}) size ${width}x${height}, andy: ${isAndy}, companion: ${isCompanion}`)
-    }
     
     // Get the appropriate character sprite based on character type
     let characterSprite: PixelArtCharacter
