@@ -2,10 +2,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px;
-  min-height: 100vh;
+  flex: 1;
   width: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
 }
 
 .game-canvas {
@@ -13,10 +12,12 @@
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   background: #000;
-  margin-bottom: 20px;
-  /* Provide good default size for initial load */
+  margin-bottom: 15px;
+  /* Responsive sizing that fits within available space */
+  max-width: 90vw;
+  max-height: calc(100vh - 300px); /* Leave space for header, stats, and controls */
   width: min(90vw, 800px);
-  height: min(60vh, 600px);
+  height: min(calc(100vh - 300px), 600px);
 }
 
 .game-loading {
@@ -122,12 +123,13 @@
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   .game-canvas-container {
-    padding: 10px;
+    padding: 5px;
   }
   
   .game-canvas {
     width: min(95vw, 400px);
-    height: min(50vh, 300px);
+    height: min(calc(100vh - 250px), 300px);
+    margin-bottom: 10px;
   }
   
   .game-controls {
@@ -145,7 +147,7 @@
 @media (max-width: 1024px) and (min-width: 769px) {
   .game-canvas {
     width: min(85vw, 700px);
-    height: min(55vh, 525px);
+    height: min(calc(100vh - 280px), 525px);
   }
 }
 
@@ -153,7 +155,7 @@
 @media (min-width: 1400px) {
   .game-canvas {
     width: min(80vw, 1000px);
-    height: min(65vh, 750px);
+    height: min(calc(100vh - 320px), 750px);
   }
 }
 
