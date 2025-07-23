@@ -878,7 +878,7 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     }
     
     // Apply celebration animation
-    let drawX = x
+    const drawX = x
     let drawY = y
     if (isCelebrating) {
       const elapsed = performance.now() - celebrationStartTime
