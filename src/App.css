@@ -27,14 +27,15 @@ body {
 
 #root {
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
 }
 
 .app-header {
@@ -64,6 +65,8 @@ body {
   flex-direction: column;
   align-items: center;
   padding: 20px;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .game-stats {
