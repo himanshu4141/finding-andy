@@ -374,10 +374,15 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       canvasHeight = canvasWidth / aspectRatio
     }
     
-    state.canvas.width = state.settings.canvasWidth
-    state.canvas.height = state.settings.canvasHeight
+    // Use the calculated display size as the actual canvas size for proper scaling
+    state.canvas.width = canvasWidth
+    state.canvas.height = canvasHeight
     state.canvas.style.width = `${canvasWidth}px`
     state.canvas.style.height = `${canvasHeight}px`
+    
+    // Update settings to match the actual canvas size
+    state.settings.canvasWidth = canvasWidth
+    state.settings.canvasHeight = canvasHeight
     
     if (state.gameState.isRunning) {
       render()
@@ -585,12 +590,11 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     // Generate new crowd
     state.gameState.arena.characters = generateCrowd()
     
-    // Reset camera to center
-    state.gameState.camera.x = (ARENA_WIDTH - state.settings.canvasWidth) / 2
-    state.gameState.camera.y = (ARENA_HEIGHT - state.settings.canvasHeight) / 2
-    state.gameState.camera.targetX = state.gameState.camera.x
-    state.gameState.camera.targetY = state.gameState.camera.y
-    
+    // Reset camera to show top-left where characters are positioned
+    state.gameState.camera.x = 0
+    state.gameState.camera.y = 0
+    state.gameState.camera.targetX = 0
+    state.gameState.camera.targetY = 0
     gameLoop(0)
   }
 
@@ -636,11 +640,11 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     // Generate new crowd with smaller characters
     state.gameState.arena.characters = generateCrowd()
     
-    // Reset camera to center for new level
-    state.gameState.camera.x = (ARENA_WIDTH - state.settings.canvasWidth) / 2
-    state.gameState.camera.y = (ARENA_HEIGHT - state.settings.canvasHeight) / 2
-    state.gameState.camera.targetX = state.gameState.camera.x
-    state.gameState.camera.targetY = state.gameState.camera.y
+    // Reset camera to show top-left for new level
+    state.gameState.camera.x = 0
+    state.gameState.camera.y = 0
+    state.gameState.camera.targetX = 0
+    state.gameState.camera.targetY = 0
     
     console.log(`Advanced to level ${state.gameState.level}`)
     

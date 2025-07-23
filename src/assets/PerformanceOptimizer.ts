@@ -94,14 +94,6 @@ function createPerformanceOptimizer(): PerformanceOptimizer {
     // Enable optimizations for better performance
     ctx.imageSmoothingEnabled = false
     
-    // Use willReadFrequently hint for better performance when reading pixels
-    if ('getContextAttributes' in ctx && typeof ctx.getContextAttributes === 'function') {
-      const attributes = ctx.getContextAttributes()
-      if (attributes) {
-        console.log('Canvas context attributes:', attributes)
-      }
-    }
-    
     // Optimize canvas for performance
     if (canvas.style.willChange !== 'auto') {
       canvas.style.willChange = 'auto' // Let browser decide
