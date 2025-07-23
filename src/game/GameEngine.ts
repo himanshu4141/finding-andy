@@ -374,10 +374,19 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       canvasHeight = canvasWidth / aspectRatio
     }
     
-    state.canvas.width = state.settings.canvasWidth
-    state.canvas.height = state.settings.canvasHeight
+    // Use the calculated display size as the actual canvas size for proper scaling
+    state.canvas.width = canvasWidth
+    state.canvas.height = canvasHeight
     state.canvas.style.width = `${canvasWidth}px`
     state.canvas.style.height = `${canvasHeight}px`
+    
+    // Update settings to match the actual canvas size
+    state.settings.canvasWidth = canvasWidth
+    state.settings.canvasHeight = canvasHeight
+    
+    console.log(`Canvas internal size: ${state.canvas.width}x${state.canvas.height}`)
+    console.log(`Canvas display size: ${canvasWidth}x${canvasHeight}`)
+    console.log(`Settings size: ${state.settings.canvasWidth}x${state.settings.canvasHeight}`)
     
     if (state.gameState.isRunning) {
       render()
@@ -813,8 +822,10 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     if (state.crowdBackground) {
       // Draw the procedural crowd background
       state.ctx.drawImage(state.crowdBackground, 0, 0)
+      console.log('Drew crowd background')
     } else {
       // Fallback: Concert-themed basic background
+      console.log('Drawing fallback background')
       state.ctx.fillStyle = COLDPLAY_COLORS.background
       state.ctx.fillRect(0, 0, state.gameState.arena.width, state.gameState.arena.height)
       
@@ -866,6 +877,11 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
 
   const drawCharacter = (character: Character) => {
     const { x, y, width, height, isAndy, isCompanion, spriteIndex, hideFaceAnimation, isCelebrating, celebrationStartTime } = character
+    
+    // Debug: log the first few character draws
+    if (Math.random() < 0.1) {
+      console.log(`Drawing character at (${x}, ${y}) size ${width}x${height}, andy: ${isAndy}, companion: ${isCompanion}`)
+    }
     
     // Get the appropriate character sprite based on character type
     let characterSprite: PixelArtCharacter
