@@ -15,7 +15,11 @@ function App() {
     isRunning: false,
     score: 0,
     level: 1,
-    timeRemaining: 60,
+    timeRemaining: 0, // No longer used as countdown
+    findStartTime: null,
+    findTime: 0,
+    levelCompleted: false,
+    nextLevelReady: false,
     andyFound: false,
     companionFound: false,
     bothFound: false,
@@ -85,8 +89,15 @@ function App() {
             <span className="stat-value">{gameState.level}</span>
           </div>
           <div className="stat-item">
-            <span className="stat-label">Time:</span>
-            <span className="stat-value">{Math.ceil(gameState.timeRemaining)}s</span>
+            <span className="stat-label">Find Time:</span>
+            <span className="stat-value">
+              {gameState.findStartTime && !gameState.bothFound 
+                ? `${gameState.findTime.toFixed(1)}s` 
+                : gameState.bothFound 
+                  ? `${gameState.findTime.toFixed(1)}s` 
+                  : '0.0s'
+              }
+            </span>
           </div>
           <div className="stat-item">
             <span className="stat-label">Andy:</span>
@@ -104,10 +115,12 @@ function App() {
             <span className="stat-label">Status:</span>
             <span className="stat-value">
               {gameState.bothFound 
-                ? '🎉 Victory!' 
+                ? gameState.nextLevelReady 
+                  ? '🎉 Level Complete!'
+                  : '✅ Victory!' 
                 : gameState.isRunning 
-                  ? 'Playing' 
-                  : 'Stopped'
+                  ? 'Searching...' 
+                  : 'Ready'
               }
             </span>
           </div>

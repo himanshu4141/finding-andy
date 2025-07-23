@@ -44,7 +44,11 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       isRunning: false,
       score: 0,
       level: 1,
-      timeRemaining: 60,
+      timeRemaining: 0, // No longer used as countdown timer
+      findStartTime: null,
+      findTime: 0,
+      levelCompleted: false,
+      nextLevelReady: false,
       andyFound: false,
       companionFound: false,
       bothFound: false,
@@ -115,8 +119,11 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
 
   const generateCrowd = (): Character[] => {
     const characters: Character[] = []
-    const charWidth = 40
-    const charHeight = 60
+    
+    // Calculate character size based on level (smaller each level)
+    const baseSizeReduction = Math.max(0.1, 1 - (state.gameState.level - 1) * 0.1)
+    const charWidth = Math.floor(40 * baseSizeReduction)
+    const charHeight = Math.floor(60 * baseSizeReduction)
     const padding = 10
     
     // Calculate grid dimensions based on arena size  
@@ -154,10 +161,14 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
           y,
           width: charWidth,
           height: charHeight,
+          baseWidth: 40, // Store original size
+          baseHeight: 60, // Store original size
           isAndy: characterCount === andyIndex,
           isCompanion: characterCount === adjustedCompanionIndex,
           spriteIndex: characterCount % 5,
           isDiscovered: false,
+          isCelebrating: false,
+          celebrationStartTime: 0,
           hideFaceAnimation: {
             isActive: false,
             startTime: 0,
@@ -171,7 +182,7 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       if (characterCount >= actualCrowdSize) break
     }
     
-    console.log(`Generated ${characters.length} characters. Andy at index ${andyIndex}, Companion at index ${adjustedCompanionIndex}`)
+    console.log(`Generated ${characters.length} characters for level ${state.gameState.level}. Andy at index ${andyIndex}, Companion at index ${adjustedCompanionIndex}. Character size: ${charWidth}x${charHeight}`)
     
     return characters
   }
@@ -411,24 +422,51 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
           worldY <= character.y + character.height) {
         
         if (character.isAndy && !state.gameState.andyFound) {
+          const currentTime = performance.now()
           state.gameState.andyFound = true
-          state.gameState.score += 100
+          
+          // Calculate find time and speed-based score
+          if (state.gameState.findStartTime) {
+            state.gameState.findTime = (currentTime - state.gameState.findStartTime) / 1000
+            const speedBonus = Math.max(100, Math.floor(1000 - (state.gameState.findTime * 10)))
+            state.gameState.score += speedBonus
+            console.log(`Andy found in ${state.gameState.findTime.toFixed(1)}s! Speed bonus: ${speedBonus} points`)
+          } else {
+            state.gameState.score += 100 // Fallback score
+          }
+          
           foundCharacter = true
           character.isDiscovered = true
           character.hideFaceAnimation.isActive = true
-          character.hideFaceAnimation.startTime = performance.now()
+          character.hideFaceAnimation.startTime = currentTime
           character.hideFaceAnimation.progress = 0
+          
+          // Trigger celebration for all characters
+          triggerCelebration()
+          
           state.audioManager.playSound('victory', 0.8)
           console.log('Andy found!', { worldX, worldY, character })
           break
         } else if (character.isCompanion && !state.gameState.companionFound) {
+          const currentTime = performance.now()
           state.gameState.companionFound = true
-          state.gameState.score += 100
+          
+          // Calculate find time and speed-based score for companion
+          if (state.gameState.findStartTime) {
+            state.gameState.findTime = (currentTime - state.gameState.findStartTime) / 1000
+            const speedBonus = Math.max(50, Math.floor(500 - (state.gameState.findTime * 5)))
+            state.gameState.score += speedBonus
+            console.log(`Companion found in ${state.gameState.findTime.toFixed(1)}s! Speed bonus: ${speedBonus} points`)
+          } else {
+            state.gameState.score += 100 // Fallback score
+          }
+          
           foundCharacter = true
           character.isDiscovered = true
           character.hideFaceAnimation.isActive = true
-          character.hideFaceAnimation.startTime = performance.now()
+          character.hideFaceAnimation.startTime = currentTime
           character.hideFaceAnimation.progress = 0
+          
           state.audioManager.playSound('victory', 0.8)
           console.log('Companion found!', { worldX, worldY, character })
           break
@@ -455,6 +493,18 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     }
   }
 
+  const triggerCelebration = () => {
+    const currentTime = performance.now()
+    
+    // Make all characters celebrate
+    for (const character of state.gameState.arena.characters) {
+      character.isCelebrating = true
+      character.celebrationStartTime = currentTime
+    }
+    
+    console.log('All characters are celebrating!')
+  }
+
   const triggerVictorySequence = () => {
     const currentTime = performance.now()
     state.gameState.victory.isActive = true
@@ -466,14 +516,18 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       state.settings.canvasHeight
     )
     
+    // Mark level as completed and ready for next level
+    state.gameState.levelCompleted = true
+    state.gameState.nextLevelReady = true
+    
     // Play celebration sounds
     state.audioManager.playSound('applause')
     setTimeout(() => state.audioManager.playSound('confetti'), 500)
     
-    // Award bonus points
+    // Award bonus points for completing the level
     state.gameState.score += 500
     
-    console.log('Victory sequence triggered!')
+    console.log('Victory sequence triggered! Level completed.')
   }
 
   const triggerMissFeedback = (missPosition: Point) => {
@@ -495,12 +549,17 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   const start = () => {
     if (state.gameState.isRunning) return
     
+    const currentTime = performance.now()
     state.gameState.isRunning = true
-    state.gameState.timeRemaining = 60
-    state.gameState.score = 0
+    state.gameState.findStartTime = currentTime
+    state.gameState.findTime = 0
+    state.gameState.timeRemaining = 0 // No countdown timer
+    state.gameState.score = state.gameState.levelCompleted ? state.gameState.score : 0 // Keep score if continuing
     state.gameState.andyFound = false
     state.gameState.companionFound = false
     state.gameState.bothFound = false
+    state.gameState.levelCompleted = false
+    state.gameState.nextLevelReady = false
     
     // Reset victory state
     state.gameState.victory.isActive = false
@@ -558,6 +617,37 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     }
   }
 
+  const nextLevel = () => {
+    if (!state.gameState.nextLevelReady) return
+    
+    // Advance to next level
+    state.gameState.level += 1
+    state.gameState.nextLevelReady = false
+    state.gameState.levelCompleted = false
+    
+    // Reset victory state
+    state.gameState.victory.isActive = false
+    state.gameState.victory.stage = 'none'
+    state.gameState.victory.duration = 0
+    state.gameState.victory.particles = []
+    state.gameState.victory.shakeIntensity = 0
+    state.gameState.victory.celebrationStartTime = 0
+    
+    // Generate new crowd with smaller characters
+    state.gameState.arena.characters = generateCrowd()
+    
+    // Reset camera to center for new level
+    state.gameState.camera.x = (ARENA_WIDTH - state.settings.canvasWidth) / 2
+    state.gameState.camera.y = (ARENA_HEIGHT - state.settings.canvasHeight) / 2
+    state.gameState.camera.targetX = state.gameState.camera.x
+    state.gameState.camera.targetY = state.gameState.camera.y
+    
+    console.log(`Advanced to level ${state.gameState.level}`)
+    
+    // Auto-start the new level
+    start()
+  }
+
   const gameLoop = (currentTime: number) => {
     if (!state.gameState.isRunning) return
     
@@ -578,14 +668,9 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   const update = (deltaTime: number) => {
     const currentTime = performance.now()
     
-    // Update timer
-    if (state.gameState.timeRemaining > 0 && !state.gameState.bothFound) {
-      state.gameState.timeRemaining -= deltaTime / 1000
-      
-      if (state.gameState.timeRemaining <= 0) {
-        state.gameState.timeRemaining = 0
-        stop()
-      }
+    // Update find timer (how long searching for Andy)
+    if (state.gameState.findStartTime && !state.gameState.bothFound) {
+      state.gameState.findTime = (currentTime - state.gameState.findStartTime) / 1000
     }
     
     // Update victory animations
@@ -599,7 +684,7 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       if (elapsed > state.gameState.victory.duration) {
         state.gameState.victory.isActive = false
         state.gameState.victory.stage = 'complete'
-        // Game continues or could be stopped here
+        // Level is completed, wait for next level button press
       } else if (elapsed > state.gameState.victory.duration * 0.7) {
         state.gameState.victory.stage = 'celebration'
       }
@@ -624,12 +709,22 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     
     // Update character animations
     for (const character of state.gameState.arena.characters) {
+      // Update hide face animation
       if (character.hideFaceAnimation.isActive) {
         const elapsed = currentTime - character.hideFaceAnimation.startTime
         character.hideFaceAnimation.progress = Math.min(elapsed / character.hideFaceAnimation.duration, 1.0)
         
         if (character.hideFaceAnimation.progress >= 1.0) {
           character.hideFaceAnimation.isActive = false
+        }
+      }
+      
+      // Update celebration animation
+      if (character.isCelebrating) {
+        const elapsed = currentTime - character.celebrationStartTime
+        // Stop celebrating after 3 seconds
+        if (elapsed > 3000) {
+          character.isCelebrating = false
         }
       }
     }
@@ -770,7 +865,7 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   }
 
   const drawCharacter = (character: Character) => {
-    const { x, y, width, height, isAndy, isCompanion, spriteIndex, hideFaceAnimation } = character
+    const { x, y, width, height, isAndy, isCompanion, spriteIndex, hideFaceAnimation, isCelebrating, celebrationStartTime } = character
     
     // Get the appropriate character sprite based on character type
     let characterSprite: PixelArtCharacter
@@ -782,28 +877,55 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       characterSprite = getCharacterSpriteByIndex(spriteIndex)
     }
     
+    // Apply celebration animation
+    let drawX = x
+    let drawY = y
+    if (isCelebrating) {
+      const elapsed = performance.now() - celebrationStartTime
+      const bounce = Math.sin(elapsed * 0.01) * 3 // Small bounce effect
+      drawY += bounce
+    }
+    
     // Draw the pixel art character using the new system
     drawPixelArtCharacter(
       state.ctx,
       characterSprite,
-      x,
-      y,
+      drawX,
+      drawY,
       width,
       height,
       hideFaceAnimation
     )
     
+    // Celebration visual effects
+    if (isCelebrating) {
+      const elapsed = performance.now() - celebrationStartTime
+      const intensity = Math.max(0, 1 - elapsed / 3000) // Fade over 3 seconds
+      
+      // Glowing effect around celebrating characters
+      state.ctx.fillStyle = `rgba(255, 215, 0, ${intensity * 0.3})`
+      state.ctx.fillRect(drawX - 2, drawY - 2, width + 4, height + 4)
+      
+      // Small sparkles
+      if (Math.random() < 0.3) {
+        state.ctx.fillStyle = `rgba(255, 255, 255, ${intensity})`
+        const sparkleX = drawX + Math.random() * width
+        const sparkleY = drawY + Math.random() * height
+        state.ctx.fillRect(sparkleX, sparkleY, 1, 1)
+      }
+    }
+
     // Special indicators for Andy and companion when not found (unchanged)
     if (isAndy && !state.gameState.andyFound && !hideFaceAnimation.isActive) {
       state.ctx.fillStyle = '#ffffff'
       state.ctx.font = 'bold 6px monospace'
       state.ctx.textAlign = 'center'
-      state.ctx.fillText('A', x + width / 2, y + height + 6)
+      state.ctx.fillText('A', drawX + width / 2, drawY + height + 6)
     } else if (isCompanion && !state.gameState.companionFound && !hideFaceAnimation.isActive) {
       state.ctx.fillStyle = '#ffffff'
       state.ctx.font = 'bold 6px monospace'
       state.ctx.textAlign = 'center'
-      state.ctx.fillText('K', x + width / 2, y + height + 6)
+      state.ctx.fillText('K', drawX + width / 2, drawY + height + 6)
     }
     
     // Found indicator with enhanced pixel art glow (unchanged)
@@ -811,9 +933,9 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       // Pixel art style glow effect
       state.ctx.fillStyle = '#2ecc71'
       // Draw glow as pixel blocks around character
-      for (let gx = x - 2; gx <= x + width + 1; gx += 2) {
-        for (let gy = y - 2; gy <= y + height + 1; gy += 2) {
-          if (gx < x || gx >= x + width || gy < y || gy >= y + height) {
+      for (let gx = drawX - 2; gx <= drawX + width + 1; gx += 2) {
+        for (let gy = drawY - 2; gy <= drawY + height + 1; gy += 2) {
+          if (gx < drawX || gx >= drawX + width || gy < drawY || gy >= drawY + height) {
             state.ctx.fillRect(gx, gy, 1, 1)
           }
         }
@@ -821,15 +943,15 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       
       // Checkmark in pixel art style
       state.ctx.fillStyle = '#2ecc71'
-      state.ctx.fillRect(x + width/2 - 2, y - 6, 2, 2)
-      state.ctx.fillRect(x + width/2, y - 4, 2, 2)
-      state.ctx.fillRect(x + width/2 + 2, y - 8, 2, 2)
+      state.ctx.fillRect(drawX + width/2 - 2, drawY - 6, 2, 2)
+      state.ctx.fillRect(drawX + width/2, drawY - 4, 2, 2)
+      state.ctx.fillRect(drawX + width/2 + 2, drawY - 8, 2, 2)
     }
     
     // Animation feedback for discovered crowd characters (unchanged)
     if (character.isDiscovered && !isAndy && !isCompanion && hideFaceAnimation.progress > 0.8) {
       state.ctx.fillStyle = '#f39c12'
-      state.ctx.fillRect(x + width/2 - 1, y - 4, 2, 2) // Small indicator dot
+      state.ctx.fillRect(drawX + width/2 - 1, drawY - 4, 2, 2) // Small indicator dot
     }
   }
 
@@ -900,7 +1022,16 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     state.ctx.font = '16px Arial'
     state.ctx.textAlign = 'left'
     state.ctx.fillText(`Score: ${state.gameState.score}`, 20, 30)
-    state.ctx.fillText(`Time: ${Math.ceil(state.gameState.timeRemaining)}`, 20, 50)
+    
+    // Show find time instead of countdown timer
+    if (state.gameState.findStartTime && !state.gameState.bothFound) {
+      state.ctx.fillText(`Find Time: ${state.gameState.findTime.toFixed(1)}s`, 20, 50)
+    } else if (state.gameState.bothFound) {
+      state.ctx.fillText(`Found in: ${state.gameState.findTime.toFixed(1)}s`, 20, 50)
+    } else {
+      state.ctx.fillText(`Find Time: 0.0s`, 20, 50)
+    }
+    
     state.ctx.fillText(`Level: ${state.gameState.level}`, 20, 70)
     
     // Character found indicators
@@ -913,7 +1044,12 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     state.ctx.textAlign = 'center'
     state.ctx.font = '14px Arial'
     state.ctx.fillStyle = '#ecf0f1'
-    state.ctx.fillText('Drag to explore • Hover for zoom lens • Find both characters!', state.settings.canvasWidth / 2, state.settings.canvasHeight - 20)
+    
+    if (state.gameState.nextLevelReady) {
+      state.ctx.fillText('Level completed! Click "Next Level" to continue', state.settings.canvasWidth / 2, state.settings.canvasHeight - 40)
+    } else {
+      state.ctx.fillText('Drag to explore • Hover for zoom lens • Find both characters!', state.settings.canvasWidth / 2, state.settings.canvasHeight - 40)
+    }
     
     // Game status indicators
     if (state.gameState.bothFound && state.gameState.victory.isActive) {
@@ -933,10 +1069,11 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       state.ctx.fillStyle = '#2ecc71'
       state.ctx.fillText(message, state.settings.canvasWidth / 2, state.settings.canvasHeight / 2)
       
-      // Bonus message
+      // Show find time and bonus
       state.ctx.font = 'bold 18px Arial'
       state.ctx.fillStyle = '#f1c40f'
-      state.ctx.fillText('BONUS: +500 points!', state.settings.canvasWidth / 2, state.settings.canvasHeight / 2 + 40)
+      state.ctx.fillText(`Time: ${state.gameState.findTime.toFixed(1)}s`, state.settings.canvasWidth / 2, state.settings.canvasHeight / 2 + 30)
+      state.ctx.fillText('BONUS: +500 points!', state.settings.canvasWidth / 2, state.settings.canvasHeight / 2 + 50)
       
     } else if (state.gameState.andyFound && !state.gameState.companionFound) {
       state.ctx.fillStyle = '#f39c12'
@@ -991,6 +1128,7 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
     stop,
     pause,
     resume,
+    nextLevel,
     getGameState,
     destroy
   }
@@ -1018,6 +1156,10 @@ export class GameEngine {
 
   resume() {
     this.engine.resume()
+  }
+
+  nextLevel() {
+    this.engine.nextLevel()
   }
 
   getGameState(): GameState {

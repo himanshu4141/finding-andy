@@ -2,7 +2,11 @@ export interface GameState {
   isRunning: boolean
   score: number
   level: number
-  timeRemaining: number
+  timeRemaining: number // Keep for backward compatibility, will be used differently
+  findStartTime: number | null // When the search started
+  findTime: number // Time taken to find Andy (in seconds)
+  levelCompleted: boolean // Whether current level is completed
+  nextLevelReady: boolean // Whether ready to advance to next level
   andyFound: boolean
   companionFound: boolean
   bothFound: boolean
@@ -19,10 +23,14 @@ export interface Character {
   y: number
   width: number
   height: number
+  baseWidth: number // Store original width for scaling
+  baseHeight: number // Store original height for scaling
   isAndy: boolean
   isCompanion: boolean
   spriteIndex: number
   isDiscovered: boolean
+  isCelebrating: boolean // New field for celebration animation
+  celebrationStartTime: number // When celebration started
   hideFaceAnimation: {
     isActive: boolean
     startTime: number
