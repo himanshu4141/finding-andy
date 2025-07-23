@@ -1,7 +1,8 @@
 import type { GameState, GameSettings, Point, Character } from '../types'
 import { createAudioManager } from './AudioManager'
 import { createCelebrationParticles, updateParticles, renderParticles } from './ParticleSystem'
-import { assetManager, COLDPLAY_COLORS, performanceOptimizer, isInViewport, optimizeCanvasForPixelArt } from '../assets'
+import { assetManager, COLDPLAY_COLORS, performanceOptimizer, isInViewport, optimizeCanvasForPixelArt, drawPixelArtCharacter, getCharacterSpriteByIndex, getAndyCharacter, getCompanionCharacter } from '../assets'
+import type { PixelArtCharacter } from '../assets'
 
 interface GameEngineState {
   canvas: HTMLCanvasElement
@@ -769,98 +770,30 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
   }
 
   const drawCharacter = (character: Character) => {
-    const { x, y, width, height, isAndy, isCompanion, spriteIndex, isDiscovered, hideFaceAnimation } = character
+    const { x, y, width, height, isAndy, isCompanion, spriteIndex, hideFaceAnimation } = character
     
-    // Define pixel art character variations based on reference images
-    const characterVariations = [
-      // Andy-style (red shirt, dark hair)
-      { hairColor: '#2f1b14', skinColor: '#fdbcb4', shirtColor: '#ff4757', pantsColor: '#2f1b14' },
-      // Kristen-style (blonde hair, dark shirt)  
-      { hairColor: '#feca57', skinColor: '#fdbcb4', shirtColor: '#2f3542', pantsColor: '#2f1b14' },
-      // Crowd variations maintaining consistent pixel art style
-      { hairColor: '#8b4513', skinColor: '#fdbcb4', shirtColor: '#4ecdc4', pantsColor: '#2f3542' },
-      { hairColor: '#654321', skinColor: '#fdbcb4', shirtColor: '#ff6b6b', pantsColor: '#2f1b14' },
-      { hairColor: '#2f1b14', skinColor: '#fdbcb4', shirtColor: '#45b7d1', pantsColor: '#2f3542' },
-    ]
-    
-    // Select character colors based on type and sprite index
-    let colors = characterVariations[spriteIndex % characterVariations.length]
+    // Get the appropriate character sprite based on character type
+    let characterSprite: PixelArtCharacter
     if (isAndy) {
-      colors = characterVariations[0] // Andy gets the red shirt variation
+      characterSprite = getAndyCharacter()
     } else if (isCompanion) {
-      colors = characterVariations[1] // Kristen gets the blonde/dark variation
-    }
-    
-    // Calculate animation offset for hide face animation
-    const animationOffset = hideFaceAnimation.isActive 
-      ? Math.sin(hideFaceAnimation.progress * Math.PI) * 4 
-      : 0
-    
-    // Draw character outline for better pixel art definition
-    state.ctx.fillStyle = '#000000'
-    state.ctx.fillRect(x, y, width, height)
-    
-    // Pants (lower body)
-    state.ctx.fillStyle = colors.pantsColor
-    state.ctx.fillRect(x + 4, y + height - 18, width - 8, 14)
-    
-    // Shirt (upper body)  
-    state.ctx.fillStyle = colors.shirtColor
-    state.ctx.fillRect(x + 3, y + height - 35, width - 6, 20)
-    
-    // Arms
-    state.ctx.fillStyle = colors.shirtColor
-    state.ctx.fillRect(x + 1, y + height - 32, 4, 12) // Left arm
-    state.ctx.fillRect(x + width - 5, y + height - 32, 4, 12) // Right arm
-    
-    // Hands
-    state.ctx.fillStyle = colors.skinColor
-    state.ctx.fillRect(x + 1, y + height - 22, 4, 4) // Left hand
-    state.ctx.fillRect(x + width - 5, y + height - 22, 4, 4) // Right hand
-    
-    // Head outline
-    state.ctx.fillStyle = '#000000'
-    state.ctx.fillRect(x + 6, y + 4, width - 12, 18)
-    
-    // Head (skin)
-    state.ctx.fillStyle = colors.skinColor
-    state.ctx.fillRect(x + 7, y + 5, width - 14, 16)
-    
-    // Hair
-    state.ctx.fillStyle = colors.hairColor
-    state.ctx.fillRect(x + 7, y + 5, width - 14, 8) // Hair area
-    
-    // Hide face animation - characters cover their face when discovered
-    if (hideFaceAnimation.isActive && hideFaceAnimation.progress > 0.2) {
-      // Hands covering face animation
-      const handOffset = Math.floor(hideFaceAnimation.progress * 6)
-      
-      // Left hand moving to cover face
-      state.ctx.fillStyle = colors.skinColor
-      state.ctx.fillRect(x + 7 + handOffset, y + 12 + Math.floor(animationOffset), 4, 6)
-      
-      // Right hand moving to cover face  
-      state.ctx.fillRect(x + width - 11 - handOffset, y + 12 + Math.floor(animationOffset), 4, 6)
-      
-      // Face partially hidden
-      if (hideFaceAnimation.progress > 0.5) {
-        state.ctx.fillStyle = colors.skinColor
-        state.ctx.fillRect(x + 9, y + 12, width - 18, 6)
-      }
+      characterSprite = getCompanionCharacter()
     } else {
-      // Normal face - eyes and mouth
-      if (!hideFaceAnimation.isActive || hideFaceAnimation.progress <= 0.2) {
-        // Eyes
-        state.ctx.fillStyle = '#000000'
-        state.ctx.fillRect(x + 10, y + 12, 2, 2) // Left eye
-        state.ctx.fillRect(x + width - 12, y + 12, 2, 2) // Right eye
-        
-        // Simple mouth
-        state.ctx.fillRect(x + width/2 - 1, y + 16, 2, 1)
-      }
+      characterSprite = getCharacterSpriteByIndex(spriteIndex)
     }
     
-    // Special indicators for Andy and Kristen when not found
+    // Draw the pixel art character using the new system
+    drawPixelArtCharacter(
+      state.ctx,
+      characterSprite,
+      x,
+      y,
+      width,
+      height,
+      hideFaceAnimation
+    )
+    
+    // Special indicators for Andy and companion when not found (unchanged)
     if (isAndy && !state.gameState.andyFound && !hideFaceAnimation.isActive) {
       state.ctx.fillStyle = '#ffffff'
       state.ctx.font = 'bold 6px monospace'
@@ -873,7 +806,7 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       state.ctx.fillText('K', x + width / 2, y + height + 6)
     }
     
-    // Found indicator with enhanced pixel art glow
+    // Found indicator with enhanced pixel art glow (unchanged)
     if ((isAndy && state.gameState.andyFound) || (isCompanion && state.gameState.companionFound)) {
       // Pixel art style glow effect
       state.ctx.fillStyle = '#2ecc71'
@@ -893,8 +826,8 @@ export function createGameEngine(canvas: HTMLCanvasElement, settings: GameSettin
       state.ctx.fillRect(x + width/2 + 2, y - 8, 2, 2)
     }
     
-    // Animation feedback for discovered crowd characters
-    if (isDiscovered && !isAndy && !isCompanion && hideFaceAnimation.progress > 0.8) {
+    // Animation feedback for discovered crowd characters (unchanged)
+    if (character.isDiscovered && !isAndy && !isCompanion && hideFaceAnimation.progress > 0.8) {
       state.ctx.fillStyle = '#f39c12'
       state.ctx.fillRect(x + width/2 - 1, y - 4, 2, 2) // Small indicator dot
     }
