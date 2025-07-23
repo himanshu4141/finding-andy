@@ -16,6 +16,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const gameEngineRef = useRef<GameEngine | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentGameState, setCurrentGameState] = useState<GameState | null>(null)
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -55,6 +56,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const interval = setInterval(() => {
       if (gameEngineRef.current) {
         const gameState = gameEngineRef.current.getGameState()
+        setCurrentGameState(gameState)
         onGameStateChange(gameState)
       }
     }, 100) // Poll every 100ms
@@ -83,6 +85,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const resumeGame = () => {
     if (gameEngineRef.current) {
       gameEngineRef.current.resume()
+    }
+  }
+
+  const nextLevel = () => {
+    if (gameEngineRef.current) {
+      gameEngineRef.current.nextLevel()
     }
   }
 
@@ -129,6 +137,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           <button onClick={stopGame} className="game-btn stop-btn">
             Stop
           </button>
+          {currentGameState?.nextLevelReady && (
+            <button onClick={nextLevel} className="game-btn next-level-btn">
+              Next Level
+            </button>
+          )}
         </div>
       )}
     </div>
